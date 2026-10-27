@@ -1,0 +1,2 @@
+Error: strict mode violation: locator("#login-submit") resolved to 2 elements
+	at Object.<anonymous> (node_modules/@playwright/test/lib/index.js:12:3)

@@ -3,6 +3,8 @@ from pydantic import BaseModel
 
 class GraphState(TypedDict):
     raw_cypress_logs: str
+    framework: str
+    language: str
     detected_anomalies: List[dict]
     evaluation_metrics: dict
     retry_count: int

@@ -1,6 +1,10 @@
 # Automation Code Validator
 
-A Flask dashboard for analyzing Cypress logs with a LangGraph workflow. The application detects anomalies, asks a locally hosted Ollama model to evaluate them, and generates a fix suggestion when the evaluation indicates that a correction is needed.
+A Flask dashboard for analyzing browser automation logs with a LangGraph workflow. It detects Cypress, Selenium, or Playwright and the test language, asks a locally hosted Ollama model to evaluate anomalies, and generates a fix suggestion when the evaluation indicates that a correction is needed.
+
+---
+![Automation Code Validator](assets/automation_code_validator.jpg)
+---
 
 ## Technology Stack
 
@@ -12,6 +16,16 @@ A Flask dashboard for analyzing Cypress logs with a LangGraph workflow. The appl
 - **Requests** for server-side HTTP communication with Ollama.
 - **HTML, JavaScript, and Tailwind CSS** for the dashboard; Server-Sent Events (SSE) stream inspection progress to the browser.
 - **unittest** for automated tests; **Ruff** is included in the project dependencies for linting.
+
+## Supported Frameworks and Languages
+
+| Framework | Supported languages |
+| --- | --- |
+| Cypress | JavaScript |
+| Selenium | Java, JavaScript, Python |
+| Playwright | Java, JavaScript, Python |
+
+The parser detects the framework and language from explicit log metadata, framework-specific log signatures, source file extensions, and available source code. Cypress defaults to JavaScript when no language signal is present. If evidence is insufficient for another stack, its value is `Unknown` rather than guessed. When a folder is configured, each `.txt` log is processed independently; files are not concatenated, so each report block keeps its own framework and language.
 
 ## Requirements
 
@@ -76,7 +90,49 @@ flowchart TD
 2. **Evaluator** evaluates each detected anomaly with the configured Evaluator prompt and Ollama model.
 3. **Fixer** runs only when the Evaluator returns `needs_fix=true`. It generates a selector/code suggestion; it does not modify source files automatically.
 
-When a single input file is configured, its path and source content can be provided as context to the Fixer. When a directory contains multiple files, their log contents are combined for the Parser.
+Evaluator output is schema-validated, and `needs_fix` is derived from the validated classification rather than trusted directly from the model. Parser evidence takes precedence for infrastructure errors and explicit selector ambiguity. Network timeouts, element lookup timeouts, and generic timeouts are distinguished; a generic timeout is `UNCLASSIFIED` until there is enough evidence. The Fixer receives only anomalies classified as `ERR_AMBIGUOUS_SELECTOR` or `FLAKY_SELECTOR`, together with the evaluator reasoning and recommendation. If the context does not support a safe exact change, it returns `NO_SAFE_FIX`.
+
+Each input log file is processed independently so its detected framework and language stay associated with its anomalies. The console reports the framework on the processing line, for example:
+
+```text
+[PARSER] Processing 8/9: selenium_javascript.txt | Framework detected: Selenium.
+```
+
+The saved JSON is an array with one block per input file, including files with no anomalies. Each block contains `file_name`, `file_path`, `framework_type`, `language`, `anomaly_count`, `needs_fix`, and nested `anomalies`. The `framework` key is also included as a compatibility alias. A block looks like this:
+
+```json
+[
+  {
+    "file_name": "selenium_javascript.txt",
+    "file_path": "data/fixtures/selenium_javascript.txt",
+    "framework_type": "Selenium",
+    "framework": "Selenium",
+    "language": "JavaScript",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_1",
+        "description": "Element not found",
+        "status": "fix_suggested",
+        "file_path": "data/fixtures/selenium_javascript.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The locator is unstable.",
+          "needs_fix": true,
+          "recommendation": "Use a stable locator."
+        },
+        "fix_suggestion": "By.id(\"login-submit\")"
+      }
+    ]
+  }
+]
+```
+
+Anomaly details remain nested under their source file. The log file path is included in results; `.txt` log contents are not treated as source code by the Fixer.
 
 ## Run the Dashboard
 
@@ -110,7 +166,7 @@ When inspection completes, the application writes a JSON summary to `logs/` usin
 verification_summary_YYYYMMDD_HHMMSS.json
 ```
 
-Each anomaly in the summary includes its `id`, `description`, `file_path`, `needs_fix` decision, and an `evaluation` object with the classification, reasoning, and recommendation. The `fix_suggestion` field contains the Fixer output when one was generated. The `status` is `fix_suggested`, `fix_needed`, `evaluated`, or `detected`, depending on the available results. `corrected` remains `false` because the application does not apply suggestions to source files automatically; a generated suggestion is not the same as an applied correction.
+Each nested anomaly includes its `id`, `description`, `file_path`, `needs_fix` decision, and an `evaluation` object with the classification, reasoning, and recommendation. The `fix_suggestion` field contains the Fixer output when one was generated. The `status` is `fix_suggested`, `fix_needed`, `evaluated`, or `detected`, depending on the available results. `corrected` remains `false` because the application does not apply suggestions to source files automatically; a generated suggestion is not the same as an applied correction.
 
 ## Logs and API
 
@@ -146,7 +202,7 @@ src/main.py                      LangGraph workflow and CLI entry point
 src/agents/nodes/                Parser node
 src/agents/prompts/              Evaluator and Fixer prompts
 src/core/                        Graph state and data schemas
-src/utils/                       Configuration, Ollama client, and prompt loader
+src/utils/                       Configuration, technology detection, Ollama client, and prompt loader
 src/tests/                       Automated tests
 web_ui/app.py                    Flask application and API
 web_ui/templates/index.html      Dashboard UI

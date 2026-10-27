@@ -6,7 +6,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from src.main import _make_client, check_ollama_ready, stream_validation_graph
+from src.main import (
+    _make_client,
+    _normalize_evaluation_response,
+    check_ollama_ready,
+    fixer_node,
+    stream_validation_graph,
+)
 from src.utils.llm_client import CancellationToken, GenerationCancelledError, OllamaClient
 from src.utils.prompt_loader import PromptLoader
 from web_ui.app import app
@@ -82,16 +88,59 @@ class TestRunInspectionRoute(unittest.TestCase):
         saved_summary = json.loads(
             (Path(self.logs_dir.name) / result["filename"]).read_text(encoding="utf-8")
         )
-        self.assertEqual(saved_summary[0]["id"], "ERR_ELEMENT_NOT_FOUND_1")
-        self.assertEqual(saved_summary[0]["status"], "fix_suggested")
-        self.assertFalse(saved_summary[0]["corrected"])
-        self.assertTrue(saved_summary[0]["needs_fix"])
+        file_block = saved_summary[0]
+        self.assertEqual(file_block["file_name"], "mock_logs.txt")
+        self.assertEqual(file_block["framework"], "Unknown")
+        self.assertEqual(file_block["framework_type"], "Unknown")
+        self.assertEqual(file_block["anomaly_count"], 1)
+        anomaly = file_block["anomalies"][0]
+        self.assertEqual(anomaly["id"], "ERR_ELEMENT_NOT_FOUND_1")
+        self.assertEqual(anomaly["status"], "fix_suggested")
+        self.assertFalse(anomaly["corrected"])
+        self.assertTrue(anomaly["needs_fix"])
         self.assertEqual(
-            saved_summary[0]["evaluation"]["classification"], "FLAKY_SELECTOR"
+            anomaly["evaluation"]["classification"], "FLAKY_SELECTOR"
         )
         self.assertEqual(
-            saved_summary[0]["fix_suggestion"], "[data-testid='submit-button']"
+            anomaly["fix_suggestion"], "[data-testid='submit-button']"
         )
+
+    def test_multiple_log_files_are_validated_independently(self):
+        first_path = Path(self.input_dir.name) / "cypress_javascript.txt"
+        second_path = Path(self.input_dir.name) / "playwright_python.txt"
+        first_path.write_text("Framework: Cypress\nLanguage: JavaScript", encoding="utf-8")
+        second_path.write_text("Framework: Playwright\nLanguage: Python", encoding="utf-8")
+        self.run_graph.side_effect = [
+            {"success": True, "data": {
+                "detected_anomalies": [], "framework": "Cypress", "language": "JavaScript"
+            }},
+            {"success": True, "data": {"detected_anomalies": []}},
+        ]
+
+        response = self.client.post("/api/run")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["files_processed"], 2)
+        self.assertEqual(self.run_graph.call_count, 2)
+        self.assertEqual(
+            [call.kwargs["file_path"] for call in self.run_graph.call_args_list],
+            [str(first_path), str(second_path)],
+        )
+        result_filename = response.get_json()["filename"]
+        file_blocks = json.loads(
+            (Path(self.logs_dir.name) / result_filename).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            [
+                (block["file_name"], block["framework"], block["framework_type"])
+                for block in file_blocks
+            ],
+            [
+                (first_path.name, "Cypress", "Cypress"),
+                (second_path.name, "Playwright", "Playwright"),
+            ],
+        )
+        self.assertTrue(all(block["anomalies"] == [] for block in file_blocks))
 
 
 class TestConfigurationRoutes(unittest.TestCase):
@@ -209,7 +258,22 @@ class TestRuntimeConfiguration(unittest.TestCase):
             ):
                 prompt = PromptLoader.get_prompt("evaluator")
 
-        self.assertEqual(prompt, "configured prompt content")
+        self.assertTrue(prompt.startswith("configured prompt content"))
+        self.assertIn("Framework: Unknown", prompt)
+        self.assertIn("Language: Unknown", prompt)
+
+    def test_prompt_loader_appends_detected_technology(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prompt_path = Path(temp_dir) / "custom_prompt.txt"
+            prompt_path.write_text("English base prompt", encoding="utf-8")
+            with patch(
+                "src.utils.prompt_loader.get_prompt_path", return_value=str(prompt_path)
+            ):
+                prompt = PromptLoader.get_prompt("fixer", "Playwright", "Python")
+
+        self.assertIn("Framework: Playwright", prompt)
+        self.assertIn("Language: Python", prompt)
+        self.assertIn("English base prompt", prompt)
 
     def test_unintegrated_preferred_provider_fails_explicitly(self):
         config = {
@@ -219,6 +283,136 @@ class TestRuntimeConfiguration(unittest.TestCase):
         with patch("src.main.load_config", return_value=config):
             with self.assertRaisesRegex(ValueError, "not integrated"):
                 _make_client()
+
+
+class TestPromptSafety(unittest.TestCase):
+    def test_evaluator_classification_determines_needs_fix(self):
+        response, consistent = _normalize_evaluation_response({
+            "anomaly_id": "wrong-model-id",
+            "classification": "LOGIC_OR_STATE_ERROR",
+            "reasoning": "Business state mismatch.",
+            "needs_fix": True,
+            "recommendation": "Review the expected state.",
+        }, "anomaly-1")
+
+        self.assertEqual(response["anomaly_id"], "anomaly-1")
+        self.assertFalse(response["needs_fix"])
+        self.assertFalse(consistent)
+
+    def test_invalid_evaluator_response_fails_closed(self):
+        response, consistent = _normalize_evaluation_response(
+            {"classification": "UNKNOWN", "needs_fix": True}, "anomaly-2"
+        )
+
+        self.assertEqual(response["classification"], "UNCLASSIFIED")
+        self.assertFalse(response["needs_fix"])
+        self.assertFalse(consistent)
+
+    def test_evaluator_response_requires_json_boolean(self):
+        response, consistent = _normalize_evaluation_response({
+            "anomaly_id": "anomaly-3",
+            "classification": "FLAKY_SELECTOR",
+            "reasoning": "The locator is unstable.",
+            "needs_fix": "true",
+            "recommendation": "Use a stable locator.",
+        }, "anomaly-3")
+
+        self.assertEqual(response["classification"], "UNCLASSIFIED")
+        self.assertFalse(response["needs_fix"])
+        self.assertFalse(consistent)
+
+    def test_parser_evidence_overrides_contradictory_evaluator_classification(self):
+        infra_response, infra_consistent = _normalize_evaluation_response({
+            "anomaly_id": "timeout-1",
+            "classification": "FLAKY_SELECTOR",
+            "reasoning": "The model guessed a selector issue.",
+            "needs_fix": True,
+            "recommendation": "Change the locator.",
+        }, "timeout-1", error_type="INFRA_FAILURE", flakiness_score=0.8)
+        ambiguous_response, ambiguous_consistent = _normalize_evaluation_response({
+            "anomaly_id": "ambiguous-1",
+            "classification": "LOGIC_OR_STATE_ERROR",
+            "reasoning": "The model ignored explicit ambiguity.",
+            "needs_fix": False,
+            "recommendation": "Review application state.",
+        }, "ambiguous-1", error_type="AMBIGUOUS_SELECTOR", flakiness_score=0.1)
+        unknown_timeout, timeout_consistent = _normalize_evaluation_response({
+            "anomaly_id": "unknown-timeout-1",
+            "classification": "FLAKY_SELECTOR",
+            "reasoning": "The model guessed a timeout cause.",
+            "needs_fix": True,
+            "recommendation": "Add a wait.",
+        }, "unknown-timeout-1", error_type="UNKNOWN_TIMEOUT", flakiness_score=0.8)
+        low_flakiness, low_flakiness_consistent = _normalize_evaluation_response({
+            "anomaly_id": "element-1",
+            "classification": "FLAKY_SELECTOR",
+            "reasoning": "The model ignored the low score.",
+            "needs_fix": True,
+            "recommendation": "Change the locator.",
+        }, "element-1", error_type="ELEMENT_NOT_FOUND", flakiness_score=0.4)
+
+        self.assertEqual(infra_response["classification"], "INFRA_FAILURE")
+        self.assertFalse(infra_response["needs_fix"])
+        self.assertFalse(infra_consistent)
+        self.assertEqual(ambiguous_response["classification"], "ERR_AMBIGUOUS_SELECTOR")
+        self.assertTrue(ambiguous_response["needs_fix"])
+        self.assertFalse(ambiguous_consistent)
+        self.assertEqual(unknown_timeout["classification"], "UNCLASSIFIED")
+        self.assertFalse(unknown_timeout["needs_fix"])
+        self.assertFalse(timeout_consistent)
+        self.assertEqual(low_flakiness["classification"], "LOGIC_OR_STATE_ERROR")
+        self.assertFalse(low_flakiness["needs_fix"])
+        self.assertFalse(low_flakiness_consistent)
+
+    def test_fixer_receives_only_validated_fixable_anomalies(self):
+        client = Mock()
+        client.generate_response.return_value = "NO_SAFE_FIX"
+        state = {
+            "detected_anomalies": [
+                {
+                    "id": "fixable-1",
+                    "description": "Element not found",
+                    "error_type": "ELEMENT_NOT_FOUND",
+                    "selector_affected": "#submit",
+                },
+                {
+                    "id": "infra-1",
+                    "description": "HTTP 503 Service Unavailable",
+                    "error_type": "INFRA_FAILURE",
+                    "selector_affected": None,
+                },
+            ],
+            "evaluation_metrics": {"evaluations": [
+                {
+                    "anomaly_id": "fixable-1",
+                    "classification": "FLAKY_SELECTOR",
+                    "reasoning": "The locator failed intermittently.",
+                    "needs_fix": True,
+                    "recommendation": "Use a stable test id.",
+                },
+                {
+                    "anomaly_id": "infra-1",
+                    "classification": "INFRA_FAILURE",
+                    "reasoning": "The server returned 503.",
+                    "needs_fix": False,
+                    "recommendation": "Check service availability.",
+                },
+            ]},
+            "execution_history": [],
+            "source_code": None,
+            "current_file_path": None,
+            "framework": "Selenium",
+            "language": "Python",
+        }
+
+        with patch("src.main._make_client", return_value=client):
+            result = fixer_node(state)
+
+        prompt = client.generate_response.call_args.args[0]
+        self.assertIn("Anomaly ID: fixable-1", prompt)
+        self.assertIn("Use a stable test id.", prompt)
+        self.assertNotIn("Anomaly ID: infra-1", prompt)
+        self.assertEqual(result["fix_suggestion"], "")
 
 
 class TestOllamaCancellation(unittest.TestCase):
@@ -354,11 +548,13 @@ class TestRunCancellationRoutes(unittest.TestCase):
     def test_compiled_graph_streams_parser_and_evaluator_progress(self):
         client = unittest.mock.Mock()
         client.generate_json_response.return_value = {
+            "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
             "needs_fix": False,
             "classification": "LOGIC_OR_STATE_ERROR",
             "reasoning": "The failure is consistent.",
             "recommendation": "Review the expected application state.",
         }
+        client.generate_response.return_value = "NO_SAFE_FIX"
 
         with patch("src.main._make_client", return_value=client):
             events = list(stream_validation_graph(
@@ -424,6 +620,79 @@ class TestRunInspectionStreamRoute(unittest.TestCase):
         self.assertTrue(any("[PARSER] Found 1" in event.get("message", "") for event in events))
         self.assertEqual(complete["files_processed"], 1)
         self.assertTrue(saved_exists)
+
+    def test_stream_processes_each_framework_fixture_separately(self):
+        with tempfile.TemporaryDirectory() as input_dir, tempfile.TemporaryDirectory() as logs_dir:
+            first_path = Path(input_dir) / "cypress_javascript.txt"
+            second_path = Path(input_dir) / "selenium_java.txt"
+            first_path.write_text("Framework: Cypress", encoding="utf-8")
+            second_path.write_text("Framework: Selenium", encoding="utf-8")
+            result_event = {"type": "result", "success": True}
+            first_result = {
+                **result_event,
+                "data": {
+                    "detected_anomalies": [],
+                    "framework": "Cypress",
+                    "language": "JavaScript",
+                },
+            }
+            second_result = {
+                **result_event,
+                "data": {
+                    "detected_anomalies": [],
+                    "framework": "Selenium",
+                    "language": "Java",
+                },
+            }
+            with patch("web_ui.app.get_input_path", return_value=input_dir), patch(
+                "web_ui.app.LOGS_DIR", logs_dir
+            ), patch("web_ui.app.check_ollama_ready", return_value={
+                "host": "http://localhost:11434",
+                "model": "test-model",
+                "used_fallback": False,
+            }), patch(
+                "web_ui.app.stream_validation_graph",
+                side_effect=[iter([first_result]), iter([second_result])],
+            ) as graph_stream:
+                response = app.test_client().post("/api/run-stream")
+                events = [
+                    json.loads(line[6:])
+                    for line in response.get_data(as_text=True).splitlines()
+                    if line.startswith("data: ")
+                ]
+                completion = next(
+                    event for event in events if event["type"] == "complete"
+                )
+                saved_blocks = json.loads(
+                    (Path(logs_dir) / completion["filename"]).read_text(encoding="utf-8")
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(graph_stream.call_count, 2)
+        processing_messages = [
+            event["message"] for event in events
+            if event.get("message", "").startswith("[PARSER] Processing")
+        ]
+        self.assertIn(
+            "[PARSER] Processing 1/2: cypress_javascript.txt | Framework detected: Cypress.",
+            processing_messages,
+        )
+        self.assertIn(
+            "[PARSER] Processing 2/2: selenium_java.txt | Framework detected: Selenium.",
+            processing_messages,
+        )
+        self.assertEqual(
+            [call.kwargs["file_path"] for call in graph_stream.call_args_list],
+            [str(first_path), str(second_path)],
+        )
+        self.assertEqual(
+            next(event for event in events if event["type"] == "complete")["files_processed"],
+            2,
+        )
+        self.assertEqual(
+            [(block["file_name"], block["framework"]) for block in saved_blocks],
+            [(first_path.name, "Cypress"), (second_path.name, "Selenium")],
+        )
 
     def test_unready_ollama_prevents_sending_input_to_graph(self):
         with tempfile.TemporaryDirectory() as input_dir, tempfile.TemporaryDirectory() as logs_dir:

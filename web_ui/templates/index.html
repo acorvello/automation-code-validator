@@ -390,9 +390,17 @@
 
                     let statusMarkup = '<span class="text-yellow-400">UNKNOWN</span>';
                     if (Array.isArray(data.content)) {
-                        if (data.content.length === 0) {
+                        const hasAnomalies = data.content.some(entry =>
+                            Array.isArray(entry.anomalies)
+                                ? entry.anomalies.length > 0
+                                : Boolean(entry.id)
+                        );
+                        const hasFix = data.content.some(entry =>
+                            entry.needs_fix || (entry.anomalies || []).some(anomaly => anomaly.needs_fix)
+                        );
+                        if (!hasAnomalies) {
                             statusMarkup = '<span class="text-green-400">NO ANOMALIES DETECTED</span>';
-                        } else if (data.content.some(entry => entry.needs_fix)) {
+                        } else if (hasFix) {
                             statusMarkup = '<span class="text-yellow-400">FIX SUGGESTED - NOT APPLIED</span>';
                         } else {
                             statusMarkup = '<span class="text-green-400">EVALUATED - NO FIX REQUIRED</span>';

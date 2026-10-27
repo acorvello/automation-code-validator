@@ -1,17 +1,26 @@
 from typing import Dict
 from src.core.state import GraphState
 from src.utils.log_parser import LogParser
+from src.utils.technology_detector import detect_technology
 from src.core.schemas import EvaluationMetrics
 
 def parse_logs_node(state: GraphState) -> Dict:
     """
-    Nó responsável por processar os logs brutos do Cypress.
+    Process browser automation logs and initialize evaluation metrics.
     Extrai anomalias e gera métricas iniciais de avaliação.
     """
     raw_logs = state.get("raw_cypress_logs", "")
+    framework, language = detect_technology(
+        raw_logs,
+        file_path=state.get("current_file_path"),
+        source_code=state.get("source_code"),
+    )
     
     # Chama o utilitário para processar os logs
-    anomalies = LogParser.parse(raw_logs)
+    anomalies = LogParser.parse(
+        raw_logs,
+        file_path=state.get("current_file_path"),
+    )
     
     # Define métricas básicas baseadas na quantidade de anomalias
     metrics = EvaluationMetrics(
@@ -34,6 +43,8 @@ def parse_logs_node(state: GraphState) -> Dict:
     # Retorna apenas as chaves que serão atualizadas no estado
     return {
         "detected_anomalies": anomalies,
+        "framework": framework,
+        "language": language,
         "evaluation_metrics": metrics.model_dump(),
         "verification_logs": verification_logs,
         "current_node": "parser"

@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.main import check_ollama_ready, run_validation_graph, stream_validation_graph
 from src.utils.config import get_input_path, get_prompt_path, load_config, save_config
 from src.utils.llm_client import CancellationToken
+from src.utils.technology_detector import detect_technology
 
 app = Flask(__name__)
 
@@ -25,7 +26,7 @@ active_runs = {}
 active_runs_lock = threading.Lock()
 
 
-def _build_anomaly_summary(data):
+def _build_anomaly_summary(data, file_path=None, raw_logs=""):
     evaluations = (data.get("evaluation_metrics") or {}).get("evaluations") or []
     evaluations_by_id = {
         evaluation.get("anomaly_id"): evaluation
@@ -33,7 +34,7 @@ def _build_anomaly_summary(data):
         if evaluation.get("anomaly_id") is not None
     }
     fix_suggestion = data.get("fix_suggestion")
-    summary = []
+    anomalies = []
 
     for anomaly in data.get("detected_anomalies") or []:
         fields = anomaly.model_dump() if hasattr(anomaly, "model_dump") else dict(anomaly)
@@ -45,7 +46,7 @@ def _build_anomaly_summary(data):
         else:
             status = "evaluated" if evaluation else "detected"
 
-        summary.append({
+        anomalies.append({
             "id": fields.get("id"),
             "description": fields.get("description", ""),
             "status": status,
@@ -56,7 +57,35 @@ def _build_anomaly_summary(data):
             "fix_suggestion": suggestion,
         })
 
-    return summary
+    source_path = file_path or next(
+        (
+            anomaly.get("file_path")
+            for anomaly in (data.get("detected_anomalies") or [])
+            if (anomaly.get("file_path") if isinstance(anomaly, dict) else getattr(anomaly, "file_path", None))
+        ),
+        None,
+    )
+    framework = data.get("framework") or data.get("framework_type") or "Unknown"
+    language = data.get("language") or "Unknown"
+    if framework == "Unknown" or language == "Unknown":
+        detected_framework, detected_language = detect_technology(
+            raw_logs, file_path=source_path
+        )
+        if framework == "Unknown":
+            framework = detected_framework
+        if language == "Unknown":
+            language = detected_language
+
+    return {
+        "file_name": os.path.basename(source_path) if source_path else "Unknown",
+        "file_path": source_path,
+        "framework": framework,
+        "framework_type": framework,
+        "language": language,
+        "anomaly_count": len(anomalies),
+        "needs_fix": any(anomaly["needs_fix"] for anomaly in anomalies),
+        "anomalies": anomalies,
+    }
 
 @app.route('/')
 def index():
@@ -151,30 +180,24 @@ def run_validation():
             "message": f"No .txt files found in the input folder: {input_path}",
         })
 
+    summary = []
     try:
-        log_contents = []
         for path in log_paths:
             with open(path, "r", encoding="utf-8") as log_file:
-                log_contents.append(log_file.read())
+                raw_logs = log_file.read()
+            result = run_validation_graph(raw_logs, file_path=path)
+            if not result.get("success"):
+                return jsonify({
+                    "status": "error",
+                    "message": result.get("error", f"Validation failed for {path}."),
+                }), 500
+            summary.append(
+                _build_anomaly_summary(result.get("data", {}), path, raw_logs)
+            )
     except (OSError, UnicodeError) as error:
         return jsonify({"status": "error", "message": f"Unable to read input file: {error}"}), 500
-
-    raw_logs = "\n".join(log_contents)
-    file_path = log_paths[0] if len(log_paths) == 1 else None
-    
-    try:
-        result = run_validation_graph(raw_logs, file_path=file_path)
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-    if not result.get("success"):
-        return jsonify({
-            "status": "error",
-            "message": result.get("error", "Validation failed."),
-        }), 500
-
-    data = result.get("data", {})
-    summary = _build_anomaly_summary(data)
+    except Exception as error:
+        return jsonify({"status": "error", "message": str(error)}), 500
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     timestamp = datetime.datetime.now()
@@ -195,7 +218,7 @@ def run_validation():
         "message": f"Inspection completed. Results saved to {filename}.",
         "filename": filename,
         "files_processed": len(log_paths),
-        "anomalies_found": len(summary),
+        "anomalies_found": sum(block["anomaly_count"] for block in summary),
     })
 
 @app.route('/api/run-stream', methods=['POST'])
@@ -255,7 +278,7 @@ def run_validation_stream():
             })
             try:
                 with open(path, "r", encoding="utf-8") as log_file:
-                    log_contents.append(log_file.read())
+                    log_contents.append((path, log_file.read()))
             except (OSError, UnicodeError) as error:
                 yield send_event({
                     "type": "error",
@@ -263,8 +286,6 @@ def run_validation_stream():
                 })
                 return
 
-        raw_logs = "\n".join(log_contents)
-        file_path = log_paths[0] if len(log_paths) == 1 else None
         if cancellation_token.cancelled:
             yield send_event({"type": "cancelled", "message": "Inspection stopped by user."})
             return
@@ -304,33 +325,48 @@ def run_validation_stream():
             yield send_event({"type": "cancelled", "message": "Inspection stopped by user."})
             return
 
-        graph_result = None
-        for event in stream_validation_graph(
-            raw_logs,
-            file_path=file_path,
-            cancellation_token=cancellation_token,
-        ):
-            if event["type"] == "cancelled":
-                yield send_event(event)
-                return
-            if event["type"] == "result":
-                graph_result = event
-            else:
-                yield send_event(event)
-
-        if not graph_result or not graph_result.get("success"):
+        summary = []
+        for index, (file_path, raw_logs) in enumerate(log_contents, start=1):
+            framework, _language = detect_technology(raw_logs, file_path=file_path)
             yield send_event({
-                "type": "error",
-                "message": (graph_result or {}).get("error", "Validation failed."),
+                "type": "progress",
+                "message": (
+                    f"[PARSER] Processing {index}/{len(log_contents)}: "
+                    f"{os.path.basename(file_path)} | Framework detected: {framework}."
+                ),
             })
-            return
+            graph_result = None
+            for event in stream_validation_graph(
+                raw_logs,
+                file_path=file_path,
+                cancellation_token=cancellation_token,
+            ):
+                if event["type"] == "cancelled":
+                    yield send_event(event)
+                    return
+                if event["type"] == "result":
+                    graph_result = event
+                else:
+                    yield send_event(event)
 
-        if cancellation_token.cancelled:
-            yield send_event({"type": "cancelled", "message": "Inspection stopped by user."})
-            return
+            if not graph_result or not graph_result.get("success"):
+                yield send_event({
+                    "type": "error",
+                    "message": (
+                        f"{os.path.basename(file_path)}: "
+                        f"{(graph_result or {}).get('error', 'Validation failed.')}"
+                    ),
+                })
+                return
 
-        data = graph_result.get("data", {})
-        summary = _build_anomaly_summary(data)
+            summary.append(
+                _build_anomaly_summary(
+                    graph_result.get("data", {}), file_path, raw_logs
+                )
+            )
+            if cancellation_token.cancelled:
+                yield send_event({"type": "cancelled", "message": "Inspection stopped by user."})
+                return
 
         os.makedirs(LOGS_DIR, exist_ok=True)
         timestamp = datetime.datetime.now()
@@ -355,7 +391,7 @@ def run_validation_stream():
             "message": f"Inspection completed. Results saved to {filename}.",
             "filename": filename,
             "files_processed": len(log_paths),
-            "anomalies_found": len(summary),
+            "anomalies_found": sum(block["anomaly_count"] for block in summary),
         })
 
     response = Response(

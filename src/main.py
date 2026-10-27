@@ -30,6 +30,7 @@ from typing import Dict, Optional
 
 from flask import Flask, jsonify, request
 from langchain_core.runnables import RunnableConfig
+from pydantic import ValidationError
 
 app = Flask(__name__)
 app = Flask(__name__)
@@ -38,6 +39,7 @@ app = Flask(__name__)
 from langgraph.graph import END, StateGraph
 
 from src.agents.nodes.parser import parse_logs_node
+from src.core.schemas import EvaluatorResponse
 from src.core.state import GraphState
 from src.utils.config import get_input_path, load_config, save_config
 from src.utils.llm_client import CancellationToken, GenerationCancelledError, OllamaClient
@@ -56,6 +58,92 @@ def _anomaly_fields(anomaly) -> Dict:
 
 def _now() -> str:
     return time.strftime("%H:%M:%S")
+
+
+FIXABLE_CLASSIFICATIONS = {"ERR_AMBIGUOUS_SELECTOR", "FLAKY_SELECTOR"}
+
+
+def _normalize_evaluation_response(
+    payload,
+    anomaly_id: str,
+    error_type: Optional[str] = None,
+    flakiness_score: Optional[float] = None,
+) -> tuple[Dict, bool]:
+    fallback = {
+        "anomaly_id": anomaly_id,
+        "classification": "UNCLASSIFIED",
+        "reasoning": "The evaluator response was invalid or incomplete.",
+        "needs_fix": False,
+        "recommendation": "Review the anomaly manually; no automated fix was approved.",
+    }
+    response = None
+    try:
+        if isinstance(payload, dict):
+            response = EvaluatorResponse.model_validate(payload, strict=True)
+    except ValidationError:
+        pass
+
+    parser_policy = {
+        "INFRA_FAILURE": (
+            "INFRA_FAILURE",
+            "The parser identified an infrastructure or network failure.",
+            "Check service availability, network connectivity, or credentials.",
+        ),
+        "AMBIGUOUS_SELECTOR": (
+            "ERR_AMBIGUOUS_SELECTOR",
+            "The parser found explicit evidence that multiple elements matched.",
+            "Use the supplied context to identify a unique locator; do not guess.",
+        ),
+        "UNKNOWN_TIMEOUT": (
+            "UNCLASSIFIED",
+            "The timeout does not identify a network failure or a specific element lookup.",
+            "Inspect the original failure context before changing the test.",
+        ),
+    }
+    if error_type in {
+        "ELEMENT_NOT_FOUND", "ELEMENT_NOT_INTERACTABLE", "ELEMENT_TIMEOUT"
+    }:
+        if flakiness_score is not None and flakiness_score >= 0.6:
+            parser_policy[error_type] = (
+                "FLAKY_SELECTOR",
+                "The parser identified an element lookup failure with a high flakiness score.",
+                "Use the detected framework's stable locator strategy.",
+            )
+        else:
+            parser_policy[error_type] = (
+                "LOGIC_OR_STATE_ERROR",
+                "The element failure has a low or unavailable flakiness score.",
+                "Review application state and test expectations; do not change the locator.",
+            )
+
+    if error_type in parser_policy:
+        classification, reasoning, recommendation = parser_policy[error_type]
+        expected_needs_fix = classification in FIXABLE_CLASSIFICATIONS
+        normalized = {
+            "anomaly_id": anomaly_id,
+            "classification": classification,
+            "reasoning": reasoning,
+            "needs_fix": expected_needs_fix,
+            "recommendation": recommendation,
+        }
+        consistent = (
+            response is not None
+            and response.classification == classification
+            and response.needs_fix == expected_needs_fix
+        )
+        return normalized, consistent
+
+    if response is None:
+        return fallback, False
+
+    expected_needs_fix = response.classification in FIXABLE_CLASSIFICATIONS
+    return {
+        "anomaly_id": anomaly_id,
+        "classification": response.classification,
+        "reasoning": response.reasoning,
+        "needs_fix": expected_needs_fix,
+        "recommendation": response.recommendation,
+    }, response.needs_fix == expected_needs_fix
 
 
 def _match_installed_model(configured: str, installed: list[str]) -> Optional[str]:
@@ -146,6 +234,8 @@ def evaluator_node(state: GraphState, config: Optional[RunnableConfig] = None) -
     anomalies = state.get("detected_anomalies") or []
     history = list(state.get("execution_history") or [])
     source_code = state.get("source_code")
+    framework = state.get("framework", "Unknown")
+    language = state.get("language", "Unknown")
     cancellation_token = (config or {}).get("configurable", {}).get("cancellation_token")
     client = _make_client(cancellation_token=cancellation_token)
 
@@ -160,38 +250,39 @@ def evaluator_node(state: GraphState, config: Optional[RunnableConfig] = None) -
     for anomaly in anomalies:
         fields = _anomaly_fields(anomaly)
         prompt = (
-            PromptLoader.get_prompt("evaluator")
-            + "\n\n# ANOMALIA A AVALIAR\n"
-            + f"- ID da Anomalia: {fields.get('id')}\n"
-            + f"- Severidade: {fields.get('severity')}\n"
-            + f"- Descrição do erro: {fields.get('description')}\n"
-            + f"- Seletor afetado: {fields.get('selector_affected') or 'N/A'}\n"
-            + f"- Score de Flakiness: {fields.get('flakiness_score')}\n"
+            PromptLoader.get_prompt("evaluator", framework, language)
+            + "\n\n# ANOMALY TO EVALUATE\n"
+            + f"- Anomaly ID: {fields.get('id')}\n"
+            + f"- Severity: {fields.get('severity')}\n"
+            + f"- Error type: {fields.get('error_type') or 'UNKNOWN'}\n"
+            + f"- Error description: {fields.get('description')}\n"
+            + f"- Affected locator: {fields.get('selector_affected') or 'N/A'}\n"
+            + f"- Flakiness score: {fields.get('flakiness_score')}\n"
+            + f"- Framework: {framework}\n"
+            + f"- Language: {language}\n"
         )
         if source_code:
-            prompt += f"\n# Contexto de código\n{source_code}\n"
+            prompt += f"\n# Source code context\n{source_code}\n"
 
-        result = client.generate_json_response(prompt) or {}
-        if not result:
+        result, response_consistent = _normalize_evaluation_response(
+            client.generate_json_response(prompt),
+            fields.get("id", "unknown"),
+            error_type=fields.get("error_type"),
+            flakiness_score=fields.get("flakiness_score"),
+        )
+        if not response_consistent:
             history.append({
                 "node": "evaluator",
                 "message": (
-                    f">> AVISO: resposta da IA vazia/inválida para a anomalia "
-                    f"{fields.get('id')} (timeout, Ollama fora do ar ou JSON "
-                    f"malformado). Tratando como needs_fix=False."
+                    f">> WARNING: invalid or inconsistent evaluator response for anomaly "
+                    f"{fields.get('id')}; using a fail-closed decision."
                 ),
                 "timestamp": _now(),
             })
-        eval_needs_fix = bool(result.get("needs_fix", False))
+        eval_needs_fix = result["needs_fix"]
         if eval_needs_fix:
             needs_fix = True
-        evaluations.append({
-            "anomaly_id": result.get("anomaly_id", fields.get("id")),
-            "classification": result.get("classification", "UNKNOWN"),
-            "reasoning": result.get("reasoning", ""),
-            "needs_fix": eval_needs_fix,
-            "recommendation": result.get("recommendation", ""),
-        })
+        evaluations.append(result)
 
     metrics = dict(state.get("evaluation_metrics") or {})
     metrics["evaluations"] = evaluations
@@ -214,10 +305,16 @@ def evaluator_node(state: GraphState, config: Optional[RunnableConfig] = None) -
 def fixer_node(state: GraphState, config: Optional[RunnableConfig] = None) -> Dict:
     """Generate a selector fix for the anomalies flagged as fixable."""
     anomalies = state.get("detected_anomalies") or []
+    evaluations = (state.get("evaluation_metrics") or {}).get("evaluations") or []
+    evaluations_by_id = {
+        evaluation.get("anomaly_id"): evaluation
+        for evaluation in evaluations
+        if evaluation.get("anomaly_id") is not None
+    }
     history = list(state.get("execution_history") or [])  # fix: initialize history
     source_code = state.get("source_code")
     file_path = state.get("current_file_path")
-    if not source_code and file_path:
+    if not source_code and file_path and os.path.splitext(file_path)[1].lower() != ".txt":
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 source_code = f.read()
@@ -235,15 +332,48 @@ def fixer_node(state: GraphState, config: Optional[RunnableConfig] = None) -> Di
     lines = []
     for anomaly in anomalies:
         fields = _anomaly_fields(anomaly)
+        evaluation = evaluations_by_id.get(fields.get("id"))
+        if (
+            not evaluation
+            or evaluation.get("needs_fix") is not True
+            or evaluation.get("classification") not in FIXABLE_CLASSIFICATIONS
+        ):
+            continue
         lines.append(
-            f"- {fields.get('id')}: {fields.get('description')} "
-            f"(seletor: {fields.get('selector_affected') or 'N/A'})"
+            f"- Anomaly ID: {fields.get('id')}\n"
+            f"  Error type: {fields.get('error_type') or 'UNKNOWN'}\n"
+            f"  Description: {fields.get('description')}\n"
+            f"  Locator: {fields.get('selector_affected') or 'N/A'}\n"
+            f"  Classification: {evaluation.get('classification')}\n"
+            f"  Reasoning: {evaluation.get('reasoning', '')}\n"
+            f"  Recommendation: {evaluation.get('recommendation', '')}"
         )
-    prompt = PromptLoader.get_prompt("fixer") + "\n\n# ANOMALIAS A CORRIGIR\n" + "\n".join(lines)
-    if source_code:
-        prompt += f"\n\n# CÓDIGO-FONTE DO ARQUIVO AFETADO\n{source_code}"
+    if not lines:
+        history.append({
+            "node": "fixer",
+            "message": ">> No validated fixable anomalies; skipping code generation.",
+            "timestamp": _now(),
+        })
+        return {
+            "fix_suggestion": "",
+            "source_code": source_code,
+            "execution_history": history,
+            "current_node": "fixer",
+        }
 
-    fix_suggestion = client.generate_response(prompt)
+    prompt = (
+        PromptLoader.get_prompt(
+            "fixer", state.get("framework", "Unknown"), state.get("language", "Unknown")
+        )
+        + "\n\n# ANOMALIES TO FIX\n"
+        + "\n".join(lines)
+    )
+    if source_code:
+        prompt += f"\n\n# SOURCE CODE OF THE AFFECTED FILE\n{source_code}"
+
+    fix_suggestion = client.generate_response(prompt).strip()
+    if fix_suggestion == "NO_SAFE_FIX":
+        fix_suggestion = ""
 
     history.append({
         "node": "fixer",
@@ -300,6 +430,8 @@ def run_validation_graph(raw_logs: str, file_path: Optional[str] = None) -> Dict
                 "evaluation_metrics": final_state.get("evaluation_metrics"),
                 "needs_fix": final_state.get("needs_fix"),
                 "fix_suggestion": final_state.get("fix_suggestion"),
+                "framework": final_state.get("framework", "Unknown"),
+                "language": final_state.get("language", "Unknown"),
             }
         }
     except Exception as e:
@@ -385,6 +517,8 @@ def stream_validation_graph(
                 "evaluation_metrics": final_state.get("evaluation_metrics"),
                 "needs_fix": final_state.get("needs_fix"),
                 "fix_suggestion": final_state.get("fix_suggestion"),
+                "framework": final_state.get("framework", "Unknown"),
+                "language": final_state.get("language", "Unknown"),
             },
         }
     except GenerationCancelledError:
@@ -415,7 +549,7 @@ def index():
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cypress LangGraph Validator</title>
+    <title>Automation Code Validator</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #f4f6f9; color: #222; }
@@ -433,11 +567,11 @@ def index():
     </style>
 </head>
 <body>
-    <header><h1>Cypress LangGraph Validator</h1></header>
+    <header><h1>Automation Code Validator</h1></header>
     <main>
         <div class="card">
-            <h2>1. Logs do Cypress</h2>
-            <textarea id="logs" placeholder="Cole aqui o log de execu&ccedil;&atilde;o do Cypress..."></textarea>
+            <h2>1. Browser automation logs</h2>
+            <textarea id="logs" placeholder="Paste Cypress, Selenium, or Playwright logs here..."></textarea>
             <button onclick="runPipeline()">Executar Pipeline</button>
             <p class="muted">O grafo roda: parser &rarr; evaluator &rarr; (fixer | END).</p>
         </div>
@@ -563,12 +697,18 @@ def api_config_post():
     save_config(cfg)
     return jsonify({"message": "Configuração salva.", "config": cfg})
 
-def _initial_state(raw_logs: str, file_path: Optional[str] = None) -> Dict:
+def _initial_state(
+    raw_logs: str,
+    file_path: Optional[str] = None,
+    source_code: Optional[str] = None,
+) -> Dict:
     """Build the initial GraphState for a pipeline run."""
     return {
         "raw_cypress_logs": raw_logs,
+        "framework": "Unknown",
+        "language": "Unknown",
         "current_file_path": file_path,
-        "source_code": None,
+        "source_code": source_code,
         "detected_anomalies": [],
         "evaluation_metrics": {},
         "retry_count": 0,
@@ -607,37 +747,42 @@ def run_cli() -> int:
         print(f"Nenhum arquivo .txt encontrado em: {input_path}")
         return 1
 
-    chunks = []
+    file_contents = []
     for path in log_paths:
         try:
             with open(path, "r", encoding="utf-8") as f:
-                chunks.append(f.read())
+                file_contents.append((path, f.read()))
         except OSError as exc:
             print(f"Erro ao ler {path}: {exc}")
             return 1
-    raw_logs = "\n".join(chunks)
-    file_path = log_paths[0] if len(log_paths) == 1 else None
 
     try:
-        final_state = GRAPH.invoke(_initial_state(raw_logs, file_path=file_path))
+        final_states = [
+            GRAPH.invoke(_initial_state(raw_logs, file_path=path))
+            for path, raw_logs in file_contents
+        ]
     except Exception as exc:
         print(f"Erro ao executar o grafo: {exc}")
         return 1
 
     print("\n=== HISTÓRICO DA EXECUÇÃO ===")
-    for entry in final_state.get("execution_history", []):
-        print(f"[{entry['timestamp']}] {entry['node']}: {entry['message']}")
+    for path, final_state in zip(log_paths, final_states):
+        print(f"\n--- {os.path.basename(path)} ---")
+        for entry in final_state.get("execution_history", []):
+            print(f"[{entry['timestamp']}] {entry['node']}: {entry['message']}")
 
     print("\n=== ANOMALIAS DETECTADAS ===")
-    for anomaly in final_state.get("detected_anomalies", []):
-        fields = _anomaly_fields(anomaly)
-        print(f"- {fields.get('id')}: {fields.get('description')} "
-              f"(severidade: {fields.get('severity')}, flakiness: {fields.get('flakiness_score')})")
+    for path, final_state in zip(log_paths, final_states):
+        print(f"\n--- {os.path.basename(path)} ---")
+        for anomaly in final_state.get("detected_anomalies", []):
+            fields = _anomaly_fields(anomaly)
+            print(f"- {fields.get('id')}: {fields.get('description')} "
+                  f"(severidade: {fields.get('severity')}, flakiness: {fields.get('flakiness_score')})")
 
-    print(f"\n=== needs_fix: {final_state.get('needs_fix')} ===")
-    if final_state.get("needs_fix"):
-        print("\n=== SUGESTÃO DE CORREÇÃO ===")
-        print(final_state.get("fix_suggestion"))
+        print(f"needs_fix: {final_state.get('needs_fix')}")
+        if final_state.get("needs_fix"):
+            print("=== SUGESTÃO DE CORREÇÃO ===")
+            print(final_state.get("fix_suggestion"))
     return 0
 
 
