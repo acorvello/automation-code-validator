@@ -1,0 +1,7 @@
+# Mock log do Cypress com erros típicos
+[01:20:30] INFO: Starting test "Login Flow"
+[01:20:31] INFO: Clicking button ".login-btn"
+[01:20:35] ERROR: Timed out after 30000ms
+[01:20:36] ERROR: Could not find element: #password-field
+[01:20:37] INFO: Retrying...
+[01:20:38] ERROR: Command failed: click() on #submit-btn

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: #password-field",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  }
+]

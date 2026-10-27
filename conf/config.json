@@ -1,0 +1,16 @@
+{
+    "ai": {
+        "preferred_model": "ollama"
+    },
+    "ollama": {
+        "host": "http://localhost:11434",
+        "model": "qwen2.5-coder:1.5b"
+    },
+    "files": {
+        "input_path": "data/fixtures"
+    },
+    "prompts": {
+        "evaluator": "src/agents/prompts/evaluator_prompt.txt",
+        "fixer": "src/agents/prompts/fixer_prompt.txt"
+    }
+}

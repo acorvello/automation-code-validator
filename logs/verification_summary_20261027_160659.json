@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: 30000",
+    "status": "evaluated",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "Line 4: 30000 indicates an error due to a timeout or network issue. The exact cause of the timeout is not clear, as the text '30000' is not provided. Without knowing the exact cause of the error, it is not possible to determine if it is a flaky selector or not.",
+      "needs_fix": false,
+      "recommendation": "Please provide the exact error message from the log to determine the root cause and adjust the test accordingly."
+    },
+    "fix_suggestion": null
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: #password-field",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The password field is expected to be present on the login page. However, the query '#password-field' did not find any elements matching it, which suggests a potential issue with the selector or the presence of dynamic content.",
+      "needs_fix": true,
+      "recommendation": "Change the selector to '#password-input' or use a different method to interact with the password field, such as using jQuery or JavaScript."
+    },
+    "fix_suggestion": "{\n  \"correção\": {\n    \"#password-field\": \"#password-field\"\n  }\n}"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The click() function seems to fail on the element with ID 'submit-btn'. This could be due to the element not being rendered yet, causing the click function to fail. This is a flaky test, as it depends on the state of the DOM.",
+      "needs_fix": true,
+      "recommendation": "Wait for the element to be rendered before clicking on it. This can be achieved using a wait command like `cy.wait()`."
+    },
+    "fix_suggestion": "{\n  \"correção\": {\n    \"#password-field\": \"#password-field\"\n  }\n}"
+  },
+  {
+    "id": "ERR_TIMEOUT_12",
+    "description": "Line 12: 30000",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_12",
+      "classification": "INFRA_FAILURE",
+      "reasoning": "The error indicates a network timeout. This is an infrastructure issue that needs to be resolved by checking the network connectivity.",
+      "needs_fix": true,
+      "recommendation": "Verify the network connectivity of the application and retry the operation."
+    },
+    "fix_suggestion": "{\n  \"correção\": {\n    \"#password-field\": \"#password-field\"\n  }\n}"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_13",
+    "description": "Line 13: #password-field",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_13",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "O seletor #password-field é instável devido à renderização dinâmica. O score de flakiness é alto (0.8), sugerindo que o elemento pode não estar presente no momento da execução do teste.",
+      "needs_fix": true,
+      "recommendation": "Altere o seletor para um que seja mais específico ou identificado, ou aguarde até que o elemento esteja presente antes de executar o teste. Se o elemento for dinâmico, considere usar uma estratégia de espera para garantir que o elemento esteja lá antes de verificar."
+    },
+    "fix_suggestion": "{\n  \"correção\": {\n    \"#password-field\": \"#password-field\"\n  }\n}"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_15",
+    "description": "Line 15: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_15",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The score of flakiness is high (0.5), indicating that the error is consistent and not due to a simple flaky selector. The element 'Submit-btn' might be unstable due to rendering dynamic content.",
+      "needs_fix": true,
+      "recommendation": "Verify that the element 'Submit-btn' is always available and that the click event is properly handled. If the element is dynamic, consider using a more reliable method to interact with it, such as using an event listener or a wait."
+    },
+    "fix_suggestion": "{\n  \"correção\": {\n    \"#password-field\": \"#password-field\"\n  }\n}"
+  }
+]

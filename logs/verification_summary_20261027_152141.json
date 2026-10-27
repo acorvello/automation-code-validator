@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: 30000",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: #password-field",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: click() on #submit-btn",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  },
+  {
+    "id": "ERR_TIMEOUT_12",
+    "description": "Line 12: 30000",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_13",
+    "description": "Line 13: #password-field",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_15",
+    "description": "Line 15: click() on #submit-btn",
+    "status": "detected",
+    "file_path": null,
+    "corrected": false
+  }
+]

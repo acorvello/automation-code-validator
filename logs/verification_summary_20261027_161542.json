@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: 30000",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error is a timeout that indicates that the element was not found after 30000 milliseconds.",
+      "needs_fix": true,
+      "recommendation": "Check if the element is present on the page or if the wait time is appropriate."
+    },
+    "fix_suggestion": "{\n  \"correction\": \"#password-field\"\n}"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: #password-field",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The score of flakiness is high (0.8) and the error is 'Element Not Found' or 'Element Not Interactable'. The seletor '#password-field' is identified as instable due to renderization dinâmica. A more specific selector should be used to resolve the issue.",
+      "needs_fix": true,
+      "recommendation": "Modify the seletor to '#password-field' to ensure it is properly located on the webpage."
+    },
+    "fix_suggestion": "{\n  \"correction\": \"#password-field\"\n}"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The selector `#submit-btn` is not unique and more than one element was found. Please provide a more specific selector.",
+      "needs_fix": true,
+      "recommendation": "Change the selector to `button[type='submit']` or use a more specific selector based on the context."
+    },
+    "fix_suggestion": "{\n  \"correction\": \"#password-field\"\n}"
+  },
+  {
+    "id": "ERR_TIMEOUT_12",
+    "description": "Line 12: 30000",
+    "status": "evaluated",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_12",
+      "classification": "LOGIC_OR_STATE_ERROR",
+      "reasoning": "O erro é causado por um timeout de rede, que não é um problema de seletor instável.",
+      "needs_fix": false,
+      "recommendation": "Verifique a conexão da rede e ajuste o tempo de espera se necessário."
+    },
+    "fix_suggestion": null
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_13",
+    "description": "Line 13: #password-field",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_13",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The score of flakiness is high (0.8), and the error is 'Element Not Found'. The element might be in a dynamic state, causing the flakiness. To resolve this, consider using explicit waits to ensure the element is present before interacting with it.",
+      "needs_fix": true,
+      "recommendation": "Add explicit waits to ensure the element is present before interacting with it."
+    },
+    "fix_suggestion": "{\n  \"correction\": \"#password-field\"\n}"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_15",
+    "description": "Line 15: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": null,
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_15",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The log indicates that more than one element was found for the selector '#submit-btn'. The correct selector should be more specific.",
+      "needs_fix": true,
+      "recommendation": "Modify the selector to be more specific, such as '#submit-btn[button-type=submit]'."
+    },
+    "fix_suggestion": "{\n  \"correction\": \"#password-field\"\n}"
+  }
+]

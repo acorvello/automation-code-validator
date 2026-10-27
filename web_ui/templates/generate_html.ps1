@@ -1,0 +1,4 @@
+# Script para atualizar index.html com visualização de logs
+$templatePath = Join-Path $PSScriptRoot 'index.html'
+$oldContent = Get-Content $templatePath -Raw
+$newHtml = $oldContent -replace '<div id="logsContainer"></div>' + '`n        <!-- Lista de Logs -->`n        <div class="bg-gray-800 rounded-lg shadow-xl mb-6 overflow-hidden">' + `n            '<div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center justify-between">' + `n                '<span class="flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span><span class="font-mono text-gray-100">📁 Logs da Pasta logs/</span></span>' + `n                '<span class="text-xs text-gray-400" id="logCount">(carregando...)</span>' + `n            '</div>' + `n            '<div id="logsList" class="bg-gray-900 p-3 max-h-64 overflow-auto divide-y divide-gray-700">'

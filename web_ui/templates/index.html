@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Automation Code Validator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .console-line { font-family: monospace; padding: 2px; margin-bottom: 1px; border-radius: 3px; white-space: pre-wrap; }
+        .info { color: #64b5f6; } .success { color: #a5d6a7; } .error { color: #ef9a9a; }
+        .log-details-panel { background: #1e293b; border-left: 2px solid #38bdf8; padding: 12px; max-height: 400px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f5f9; }
+        @keyframes inspection-progress-sweep {
+            from { transform: translateX(-120%); }
+            to { transform: translateX(320%); }
+        }
+        .inspection-progress-sweep { animation: inspection-progress-sweep 1.8s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+            .inspection-progress-sweep { animation: none; width: 100%; opacity: 0.55; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4 w-full flex justify-between items-center font-bold relative">
+    <span class="text-xl">Automation Code Validator</span>
+    <button id="menuBtn" type="button" class="hover:bg-blue-700 p-1 rounded transition-colors cursor-pointer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+<div id="mainMenu" class="hidden absolute right-4 top-full bg-white text-gray-800 shadow-xl rounded-lg p-4 w-56 z-[100] border border-gray-200">
+    <ul class="space-y-4">
+        <li>
+            <a href="#" id="settingsLink" class="block hover:bg-blue-50 p-2 rounded transition-colors">⚙️ Settings</a>
+        </li>
+        <li>
+            <a href="#" class="block hover:bg-blue-50 p-2 rounded transition-colors">👤 Users</a>
+        </li>
+        <li>
+            <a href="#" class="block hover:bg-blue-50 p-2 rounded transition-colors">📊 Reports</a>
+        </li>
+        <hr class="border-gray-100">
+        <li>
+            <a href="#" class="block hover:bg-red-50 text-red-600 p-2 rounded transition-colors">🚪 Sign out</a>
+        </li>
+    </ul>
+</div>
+</nav>
+
+    <main class="container mx-auto p-6">
+        <div class="flex gap-6 flex-col lg:flex-row">
+            <!-- ESQUERDA: Validation Monitoring -->
+            <div class="flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-2 min-h-12 mb-6">
+                    <h2 class="text-2xl font-bold">Validation Monitoring</h2>
+                    <div class="flex items-center gap-2">
+                        <button id="runBtn" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded font-bold">🚀 Run Perform Inspection</button>
+                        <button id="stopBtn" type="button" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold disabled:opacity-60" disabled>Stop</button>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center">
+                        <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        <span class="ml-3 font-mono text-gray-100">📋 Console</span>
+                    </div>
+                    <div id="terminal" class="bg-gray-900 p-4 h-48 overflow-auto font-mono text-sm">
+                        <div class="info">📊 [INIT] Carregando ambiente...</div>
+                    </div>
+                    <button onclick="clearConsole()" class="m-2 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs">Clear</button>
+                </div>
+                <div id="inspectionProgress" class="hidden mt-4" role="status" aria-live="polite">
+                    <div class="flex items-center gap-2 text-sm text-gray-700">
+                        <span class="h-4 w-4 shrink-0 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" aria-hidden="true"></span>
+                        <span id="inspectionProgressText" class="min-w-0 flex-1">Preparing inspection...</span>
+                        <span id="inspectionElapsed" class="shrink-0 font-mono text-gray-500">00:00</span>
+                    </div>
+                    <div class="mt-2 h-1 overflow-hidden rounded bg-gray-300">
+                        <div class="inspection-progress-sweep h-full w-1/3 rounded bg-blue-600"></div>
+                    </div>
+                </div>
+                <div id="statusMsg" class="mt-4 p-4 rounded hidden"></div>
+            </div>
+
+            <!-- Divisória visível entre as colunas -->
+            <div class="border-t-2 border-gray-400 lg:border-t-0 lg:border-l-2 lg:w-0"></div>
+
+            <!-- DIREITA: Visualization Logs -->
+            <div class="flex-1 flex flex-col">
+                <h2 class="text-2xl font-bold mb-6 flex min-h-12 items-center">Visualization Logs</h2>
+                <div class="flex flex-col gap-6">
+                <!-- Lista de Logs -->
+                <div class="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center justify-between">
+                        <span class="flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span><span class="font-mono text-gray-100">📁 Logs da Pasta logs/</span></span>
+                        <span class="text-xs text-gray-400" id="logCount">(carregando...)</span>
+                    </div>
+                    <div id="logsList" class="bg-gray-900 p-3 max-h-64 overflow-auto divide-y divide-gray-700">
+                        <!-- Logs serão carregados via JS -->
+                    </div>
+                </div>
+
+                <!-- Painel de Detalhes do Log (inicialmente oculto) -->
+                <div id="logDetailsPanel" class="bg-gray-800 rounded-lg shadow-xl hidden overflow-hidden">
+                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center justify-between">
+                        <span class="font-mono text-yellow-400 flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span><span>📄 Detalhes do Arquivo</span></span>
+                        <button onclick="closeLogDetails()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
+                    </div>
+                    <div id="logDetailsContent" class="p-4 bg-gray-900 font-mono text-xs text-gray-100"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        const terminal = document.getElementById('terminal');
+        const btn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        let activeRunId = null;
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function addLog(text, type) {
+            const line = document.createElement('div');
+            line.className = type || 'info';
+            line.textContent = text;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearConsole() {
+            terminal.innerHTML = '<div class="info">📊 Terminal limpo...</div>';
+        }
+
+        let inspectionTimer = null;
+        let inspectionStartedAt = 0;
+
+        function formatElapsedTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${minutes}:${seconds}`;
+        }
+
+        function startInspectionProgress() {
+            const progress = document.getElementById('inspectionProgress');
+            const elapsed = document.getElementById('inspectionElapsed');
+            progress.classList.remove('hidden');
+            inspectionStartedAt = Date.now();
+            elapsed.textContent = '00:00';
+            inspectionTimer = window.setInterval(() => {
+                elapsed.textContent = formatElapsedTime(Date.now() - inspectionStartedAt);
+            }, 1000);
+        }
+
+        function updateInspectionProgress(message) {
+            document.getElementById('inspectionProgressText').textContent = message;
+        }
+
+        function stopInspectionProgress() {
+            if (inspectionTimer !== null) {
+                window.clearInterval(inspectionTimer);
+                inspectionTimer = null;
+            }
+            document.getElementById('inspectionProgress').classList.add('hidden');
+        }
+
+        async function runInspectionFromFolder() {
+            const statusMessage = document.getElementById('statusMsg');
+            activeRunId = crypto.randomUUID();
+            btn.disabled = true;
+            stopBtn.disabled = false;
+            stopBtn.classList.remove('hidden');
+            statusMessage.classList.add('hidden');
+            startInspectionProgress();
+            updateInspectionProgress('Connecting to inspection service...');
+
+            try {
+                const response = await fetch('/api/run-stream', {
+                    method: 'POST',
+                    headers: { 'X-Run-ID': activeRunId }
+                });
+                if (!response.ok) {
+                    throw new Error('Inspection request failed.');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let completed = false;
+                let emptyFolder = false;
+                let cancelled = false;
+
+                const handleEvent = async (block) => {
+                    const dataLine = block.split(/\r?\n/).find(line => line.startsWith('data: '));
+                    if (!dataLine) {
+                        return;
+                    }
+
+                    const event = JSON.parse(dataLine.slice(6));
+                    if (event.type === 'progress') {
+                        updateInspectionProgress(event.message);
+                        addLog(event.message, 'info');
+                    } else if (event.type === 'empty') {
+                        emptyFolder = true;
+                        stopInspectionProgress();
+                        addLog('[EMPTY] ' + event.message, 'error');
+                        statusMessage.className = 'mt-4 p-4 rounded-lg bg-yellow-100 text-yellow-800';
+                        statusMessage.textContent = 'Input folder is empty.';
+                    } else if (event.type === 'cancelled') {
+                        cancelled = true;
+                        stopInspectionProgress();
+                        addLog('[CANCELLED] ' + event.message, 'error');
+                        statusMessage.className = 'mt-4 p-4 rounded-lg bg-yellow-100 text-yellow-800';
+                        statusMessage.textContent = 'Inspection cancelled. No result log was saved.';
+                    } else if (event.type === 'error') {
+                        throw new Error(event.message || 'Inspection failed.');
+                    } else if (event.type === 'complete') {
+                        completed = true;
+                        stopInspectionProgress();
+                        addLog(`[OK] Processed ${event.files_processed} file(s).`, 'success');
+                        addLog(`[COMPLETE] Found ${event.anomalies_found} anomalie(s). Log: ${event.filename}`, 'success');
+                        statusMessage.className = 'mt-4 p-4 rounded-lg bg-green-100 text-green-800';
+                        statusMessage.textContent = event.message;
+                        await loadLogs(true);
+                    }
+                };
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    const blocks = buffer.split(/\r?\n\r?\n/);
+                    buffer = blocks.pop();
+                    for (const block of blocks) {
+                        await handleEvent(block);
+                    }
+                    if (done) {
+                        break;
+                    }
+                }
+                if (buffer.trim()) {
+                    await handleEvent(buffer);
+                }
+                if (!completed && !emptyFolder && !cancelled) {
+                    throw new Error('The inspection stream ended before completion.');
+                }
+            } catch (error) {
+                stopInspectionProgress();
+                addLog('[ERROR] ' + error.message, 'error');
+                statusMessage.className = 'mt-4 p-4 rounded-lg bg-red-100 text-red-800';
+                statusMessage.textContent = 'Error: ' + error.message;
+            } finally {
+                stopInspectionProgress();
+                btn.disabled = false;
+                stopBtn.disabled = true;
+                stopBtn.classList.add('hidden');
+                activeRunId = null;
+            }
+        }
+
+        async function stopInspection() {
+            if (!activeRunId || stopBtn.disabled) {
+                return;
+            }
+
+            stopBtn.disabled = true;
+            updateInspectionProgress('Cancellation requested. Stopping the active Ollama request...');
+            addLog('[STOP] Cancellation requested. Waiting for Ollama to stop...', 'info');
+
+            try {
+                const response = await fetch(`/api/run-cancel/${encodeURIComponent(activeRunId)}`, {
+                    method: 'POST'
+                });
+                if (!response.ok) {
+                    const result = await response.json();
+                    addLog('[STOP] ' + (result.message || 'No active inspection found.'), 'error');
+                }
+            } catch (error) {
+                addLog('[STOP] Could not request cancellation: ' + error.message, 'error');
+                stopBtn.disabled = false;
+            }
+        }
+
+        btn.onclick = runInspectionFromFolder;
+        stopBtn.addEventListener('click', stopInspection);
+        clearConsole.onclick = clearConsole;
+        
+        const logsList = document.getElementById('logsList');
+        const logCount = document.getElementById('logCount');
+        let currentLogsPage = 1;
+        let totalLogs = 0;
+        let hasMoreLogs = true;
+        let loadingLogs = false;
+
+        function createLogItem(log) {
+            const row = document.createElement('div');
+            const bgColor = log.created_time.includes('2024') ? 'bg-yellow-900/30' :
+                (log.created_time.includes('2025') ? 'bg-green-900/30' : 'bg-blue-900/30');
+            row.className = `p-3 hover:bg-gray-800 cursor-pointer transition-colors ${bgColor}`;
+            row.dataset.logItem = 'true';
+            row.addEventListener('click', () => showLogDetails(log.filename));
+
+            const content = document.createElement('div');
+            content.className = 'flex justify-between items-center';
+            const details = document.createElement('div');
+            const filename = document.createElement('span');
+            filename.className = 'font-bold text-yellow-400';
+            filename.textContent = log.filename;
+            const timestamp = document.createElement('span');
+            timestamp.className = 'ml-3 text-xs px-2 py-1 bg-gray-700 rounded text-gray-300';
+            timestamp.textContent = `📅 ${log.created_time}`;
+            details.append(filename, timestamp);
+
+            const size = document.createElement('span');
+            size.className = 'text-xs text-gray-500';
+            size.textContent = `${(log.size_bytes / 1024).toFixed(1)} KB`;
+            content.append(details, size);
+            row.appendChild(content);
+            return row;
+        }
+
+        // Load five logs at a time as the list is scrolled.
+        async function loadLogs(reset = false) {
+            if (loadingLogs) {
+                return;
+            }
+            if (reset) {
+                currentLogsPage = 1;
+                totalLogs = 0;
+                hasMoreLogs = true;
+                logsList.replaceChildren();
+                logsList.scrollTop = 0;
+            }
+            if (!hasMoreLogs) {
+                return;
+            }
+
+            loadingLogs = true;
+            logCount.textContent = 'Loading...';
+            try {
+                const response = await fetch(`/api/logs?page=${currentLogsPage}`);
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || 'Unable to load log files.');
+                }
+
+                totalLogs = result.total;
+                hasMoreLogs = result.has_more;
+                if (totalLogs === 0) {
+                    logsList.innerHTML = '<div class="text-center text-gray-500 py-4">No log files found in the logs folder.</div>';
+                    logCount.textContent = '0 of 0';
+                } else {
+                    result.logs.forEach(log => logsList.appendChild(createLogItem(log)));
+                    const loadedLogs = logsList.querySelectorAll('[data-log-item]').length;
+                    logCount.textContent = `${loadedLogs} of ${totalLogs}`;
+                    currentLogsPage += 1;
+                }
+            } catch (error) {
+                console.error('Unable to load log files:', error);
+                logCount.textContent = 'Load failed';
+            } finally {
+                loadingLogs = false;
+            }
+        }
+
+        logsList.addEventListener('scroll', () => {
+            const nearBottom = logsList.scrollTop + logsList.clientHeight >= logsList.scrollHeight - 24;
+            if (nearBottom) {
+                loadLogs();
+            }
+        });
+        
+        // Mostrar detalhes do log específico
+        async function showLogDetails(filename) {
+            try {
+                const response = await fetch('/api/logs-details/' + encodeURIComponent(filename));
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('logDetailsContent').innerHTML = '<div class="text-red-400">Erro: ' + data.error + '</div>';
+                } else {
+                    const contentDiv = document.getElementById('logDetailsContent');
+                    
+                    // Formatar conteúdo JSON para leitura
+                    let formattedContent = '';
+                    try {
+                        formattedContent = JSON.stringify(data.content, null, 2);
+                    } catch (e) {
+                        formattedContent = data.content || '';
+                    }
+
+                    let statusMarkup = '<span class="text-yellow-400">UNKNOWN</span>';
+                    if (Array.isArray(data.content)) {
+                        if (data.content.length === 0) {
+                            statusMarkup = '<span class="text-green-400">NO ANOMALIES DETECTED</span>';
+                        } else if (data.content.some(entry => entry.needs_fix)) {
+                            statusMarkup = '<span class="text-yellow-400">FIX SUGGESTED - NOT APPLIED</span>';
+                        } else {
+                            statusMarkup = '<span class="text-green-400">EVALUATED - NO FIX REQUIRED</span>';
+                        }
+                    } else if (data.content.status === 'success') {
+                        statusMarkup = '<span class="text-green-400">PASSED</span>';
+                    } else if (data.content.status === 'error') {
+                        statusMarkup = '<span class="text-red-400">ERROR</span>';
+                    }
+                    
+                    contentDiv.innerHTML = `
+                        <div class="mb-3 text-gray-100"><strong>Arquivo:</strong> ${data.filename}</div>
+                        <div class="mb-3 text-xs text-gray-300">📅 <span class="text-gray-400">Data:</span> ${data.created_time}</div>
+                        <div class="mb-3 text-xs text-gray-300">💾 <span class="text-gray-400">Tamanho:</span> ${(data.size_bytes/1024).toFixed(2)} KB</div>
+                        <div class="mb-3 text-gray-100"><strong>Status:</strong> ${statusMarkup}</div>
+                        <pre class="mb-3 text-xs text-gray-100 bg-gray-800 p-3 rounded overflow-auto max-h-96 whitespace-pre-wrap break-words">${escapeHtml(formattedContent)}</pre>
+                    `;
+                }
+                
+                // Mostrar painel e rolar para ele
+                const panel = document.getElementById('logDetailsPanel');
+                panel.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Erro ao carregar detalhes:', error);
+                document.getElementById('logDetailsContent').innerHTML = '<div class="text-red-400">Erro: ' + error.message + '</div>';
+            }
+        }
+        
+        function closeLogDetails() {
+            const panel = document.getElementById('logDetailsPanel');
+            panel.classList.add('hidden');
+        }
+        
+        // Carregar logs ao iniciar página
+        loadLogs();
+    </script>
+    <!--
+    async function loadPrompts() {
+        try {
+            const response = await fetch('/api/prompts');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.evaluator !== undefined) {
+                    document.getElementById('evaluator-prompt-textarea').value = data.evaluator;
+                }
+                if (data.fixer !== undefined) {
+                    document.getElementById('fixer-prompt-textarea').value = data.fixer;
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao carregar prompts:', error);
+        }
+    }
+
+    async function savePrompts() {
+        const evaluatorPrompt = document.getElementById('evaluator-prompt-textarea').value;
+        const fixerPrompt = document.getElementById('fixer-prompt-textarea').value;
+        
+        try {
+            const response = await fetch('/api/prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evaluator: evaluatorPrompt,
+                    fixer: fixerPrompt
+                })
+            });
+            
+            if (response.ok) {
+                alert('Prompts salvos com sucesso!');
+            } else {
+                const error = await response.json();
+                alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao salvar prompts:', error);
+            alert('Erro ao conectar com o servidor.');
+        }
+    }
+
+    loadPrompts();
+
+
+Script block removed and consolidated at the end of the file
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mainMenu.classList.toggle('hidden');
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (menuBtn && mainMenu && !menuBtn.contains(e.target) && !mainMenu.contains(e.target)) {
+            mainMenu.classList.add('hidden');
+        }
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+    });
+
+    // Modal Logic
+    const settingsLink = document.getElementById('settingsLink');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeModal = document.getElementById('closeModal');
+    const cancelModal = document.getElementById('cancelModal');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    if (settingsLink && settingsModal) {
+        settingsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Settings link clicked');
+            settingsModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeModal) {
+        closeModal.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+    }
+
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', savePrompts);
+    }
+
+    if (cancelModal) {
+        cancelModal.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+    }
+
+    // Close modal on backdrop click
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // Tab switching logic
+    if (tabBtns.length > 0) {
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.getAttribute('data-tab');
+            
+            // Update active button styles
+            tabBtns.forEach(b => {
+                b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                b.classList.add('text-gray-600');
+            });
+            btn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+            btn.classList.remove('text-gray-600');
+
+            // Update active content
+            tabContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+            const targetContent = document.getElementById(`tab-${targetTab}`);
+            if (targetContent) {
+                targetContent.classList.remove('hidden');
+            }
+        });
+    });
+    }
+
+    });
+
+</script>
+-->
+
+<div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <!-- Modal Header -->
+        <div class="bg-blue-600 p-4 flex justify-between items-center">
+            <h3 class="text-white font-bold text-lg">Settings</h3>
+            <button id="closeModal" class="text-white hover:bg-blue-700 p-2 rounded transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <!-- Modal Tabs -->
+        <div class="flex border-b bg-gray-50">
+            <button class="tab-btn active flex-1 py-3 font-semibold text-blue-600 border-b-2 border-blue-600" data-tab="ai-config">AI Configuration</button>
+            <button class="tab-btn flex-1 py-3 font-semibold text-gray-600 hover:bg-gray-100" data-tab="path-inspect">Path Inspection</button>
+            <button class="tab-btn flex-1 py-3 font-semibold text-gray-600 hover:bg-gray-100" data-tab="edit-prompts">Edit Prompts</button>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="p-6 overflow-y-auto flex-1">
+            <div id="tab-ai-config" class="tab-content space-y-4">
+                <p class="text-gray-600">Configure AI models, temperatures, and generation parameters.</p>
+                <div class="bg-gray-50 p-4 rounded border">
+                    <label for="preferred-model" class="block text-sm font-bold mb-2">Preferred Model</label>
+                    <select id="preferred-model" class="w-full p-2 border rounded">
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="ollama">Local LLM (Ollama)</option>
+                    </select>
+                    <div id="ollama-settings" class="hidden mt-4 space-y-3">
+                        <div>
+                            <label for="ollama-url" class="block text-sm font-bold mb-2">Ollama URL</label>
+                            <div class="flex gap-2">
+                                <input id="ollama-url" type="url" class="min-w-0 flex-1 p-2 border rounded" value="http://localhost:11434">
+                                <button id="ollama-test-url" type="button" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Test URL</button>
+                                <button id="ollama-refresh-models" type="button" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh Models</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="ollama-model" class="block text-sm font-bold mb-2">Ollama Model</label>
+                            <select id="ollama-model" class="w-full p-2 border rounded" disabled>
+                                <option value="">Load available models</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span id="ollama-connection-indicator" class="w-3 h-3 shrink-0 rounded-full bg-gray-400" aria-hidden="true"></span>
+                                <p id="ollama-status" class="text-sm text-gray-600" role="status" aria-live="polite"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button id="ollama-save-config" type="button" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Save Configuration</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-path-inspect" class="tab-content hidden space-y-4">
+                <p class="text-gray-600">Set the code and document directories to inspect.</p>
+                <div class="bg-gray-50 p-4 rounded border">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="code-directory-input" class="text-sm font-bold">Code Directory</label>
+                        <div class="flex gap-2">
+                            <button id="code-directory-edit" type="button" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">Edit</button>
+                            <button id="code-directory-save" type="button" class="hidden px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded">Save</button>
+                        </div>
+                    </div>
+                    <input id="code-directory-input" type="text" readonly class="w-full p-2 border rounded bg-gray-50" placeholder="D:\Projects\...">
+                </div>
+            </div>
+
+            <div id="tab-edit-prompts" class="tab-content hidden space-y-4">
+                <p class="text-gray-600">Edit the prompts used by each stage of the workflow.</p>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="evaluator-prompt-textarea" class="text-sm font-bold">Evaluator Prompt</label>
+                            <div class="flex gap-2">
+                                <button id="evaluator-prompt-edit" type="button" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">Edit</button>
+                                <button id="evaluator-prompt-save" type="button" class="hidden px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="evaluator-prompt-textarea" readonly class="w-full p-2 border rounded h-48 bg-gray-50" placeholder="Enter the evaluator prompt..."></textarea>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="fixer-prompt-textarea" class="text-sm font-bold">Fixer Prompt</label>
+                            <div class="flex gap-2">
+                                <button id="fixer-prompt-edit" type="button" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">Edit</button>
+                                <button id="fixer-prompt-save" type="button" class="hidden px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="fixer-prompt-textarea" readonly class="w-full p-2 border rounded h-48 bg-gray-50" placeholder="Enter the fixer prompt..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+            <button id="cancelModal" class="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!--
+        try {
+            const response = await fetch('/api/prompts');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.evaluator !== undefined) {
+                    document.getElementById('evaluator-prompt-textarea').value = data.evaluator;
+                }
+                if (data.fixer !== undefined) {
+                    document.getElementById('fixer-prompt-textarea').value = data.fixer;
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao carregar prompts:', error);
+        }
+    }
+
+    async function savePrompts() {
+        const evaluatorPrompt = document.getElementById('evaluator-prompt-textarea').value;
+        const fixerPrompt = document.getElementById('fixer-prompt-textarea').value;
+        
+        try {
+            const response = await fetch('/api/prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evaluator: evaluatorPrompt,
+                    fixer: fixerPrompt
+                })
+            });
+            
+            if (response.ok) {
+                alert('Prompts salvos com sucesso!');
+            } else {
+                const error = await response.json();
+                alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao salvar prompts:', error);
+            alert('Erro ao conectar com o servidor.');
+        }
+    }
+
+    function clearConsole() {
+        const terminal = document.getElementById('terminal');
+        if (terminal) {
+            terminal.innerHTML = '<div class="info">📊 [INIT] Carregando ambiente...</div>';
+        }
+    }
+
+    -->
+    <script>
+    async function loadPrompts() {
+        try {
+            const response = await fetch('/api/prompts');
+            if (!response.ok) {
+                throw new Error('Failed to load prompts.');
+            }
+
+            const data = await response.json();
+            if (data.evaluator !== undefined) {
+                document.getElementById('evaluator-prompt-textarea').value = data.evaluator;
+            }
+            if (data.fixer !== undefined) {
+                document.getElementById('fixer-prompt-textarea').value = data.fixer;
+            }
+        } catch (error) {
+            console.error('Failed to load prompts:', error);
+        }
+    }
+
+    async function savePrompt(promptType) {
+        const textarea = document.getElementById(`${promptType}-prompt-textarea`);
+        const editButton = document.getElementById(`${promptType}-prompt-edit`);
+        const saveButton = document.getElementById(`${promptType}-prompt-save`);
+
+        try {
+            const response = await fetch('/api/prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [promptType]: textarea.value })
+            });
+
+            if (response.ok) {
+                textarea.readOnly = true;
+                textarea.classList.add('bg-gray-50');
+                editButton.classList.remove('hidden');
+                saveButton.classList.add('hidden');
+                alert(`${promptType === 'evaluator' ? 'Evaluator' : 'Fixer'} Prompt saved successfully.`);
+            } else {
+                const error = await response.json();
+                alert('Save failed: ' + (error.message || error.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Failed to save prompt:', error);
+            alert('Unable to connect to the server.');
+        }
+    }
+
+    async function loadCodeDirectory() {
+        try {
+            const response = await fetch('/api/config/input-path');
+            if (!response.ok) {
+                throw new Error('Failed to load the code directory.');
+            }
+
+            const data = await response.json();
+            document.getElementById('code-directory-input').value = data.input_path || '';
+        } catch (error) {
+            console.error('Failed to load the code directory:', error);
+        }
+    }
+
+    async function saveCodeDirectory() {
+        const input = document.getElementById('code-directory-input');
+        const editButton = document.getElementById('code-directory-edit');
+        const saveButton = document.getElementById('code-directory-save');
+
+        try {
+            const response = await fetch('/api/config/input-path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input_path: input.value })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to save the code directory.');
+            }
+
+            input.readOnly = true;
+            input.classList.add('bg-gray-50');
+            editButton.classList.remove('hidden');
+            saveButton.classList.add('hidden');
+            alert('Code directory saved successfully.');
+        } catch (error) {
+            console.error('Failed to save the code directory:', error);
+            alert(error.message || 'Unable to connect to the server.');
+        }
+    }
+
+    async function loadOllamaConfig() {
+        try {
+            const response = await fetch('/api/config/ollama');
+            if (!response.ok) {
+                throw new Error('Failed to load the Ollama configuration.');
+            }
+
+            const config = await response.json();
+            const preferredModel = document.getElementById('preferred-model');
+            document.getElementById('ollama-url').value = config.host || 'http://localhost:11434';
+            document.getElementById('ollama-model').dataset.savedModel = config.model || '';
+            preferredModel.value = config.preferred_model || 'ollama';
+            preferredModel.dispatchEvent(new Event('change'));
+        } catch (error) {
+            console.error('Failed to load the Ollama configuration:', error);
+        }
+    }
+
+    async function loadOllamaModels() {
+        const baseUrl = document.getElementById('ollama-url').value.trim();
+        const modelSelect = document.getElementById('ollama-model');
+        const status = document.getElementById('ollama-status');
+        const indicator = document.getElementById('ollama-connection-indicator');
+        const savedModel = modelSelect.dataset.savedModel;
+        indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-gray-400';
+        status.textContent = 'Loading models...';
+        modelSelect.disabled = true;
+
+        try {
+            const response = await fetch(`/api/ollama/models?host=${encodeURIComponent(baseUrl)}`);
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to fetch models.');
+            }
+
+            indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-green-500';
+            modelSelect.replaceChildren();
+            if (data.models.length === 0) {
+                modelSelect.add(new Option('No models found', ''));
+                status.textContent = 'Ollama responded, but no models are installed.';
+                return;
+            }
+
+            data.models.forEach((model) => modelSelect.add(new Option(model, model)));
+            if (savedModel && data.models.includes(savedModel)) {
+                modelSelect.value = savedModel;
+            }
+            modelSelect.disabled = false;
+            status.textContent = `${data.models.length} model(s) available.`;
+        } catch (error) {
+            indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-red-500';
+            modelSelect.replaceChildren(new Option('Failed to load models', ''));
+            status.textContent = error.message || 'Unable to fetch models from Ollama.';
+        }
+    }
+
+    async function testOllamaUrl() {
+        const baseUrl = document.getElementById('ollama-url').value.trim();
+        const status = document.getElementById('ollama-status');
+        const indicator = document.getElementById('ollama-connection-indicator');
+        indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-gray-400';
+        status.textContent = 'Testing connection to Ollama...';
+
+        try {
+            const response = await fetch(`/api/ollama/models?host=${encodeURIComponent(baseUrl)}`);
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to connect to Ollama.');
+            }
+
+            indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-green-500';
+            status.textContent = `URL is responding. ${data.models.length} model(s) available.`;
+        } catch (error) {
+            indicator.className = 'w-3 h-3 shrink-0 rounded-full bg-red-500';
+            status.textContent = error.message || 'Unable to connect to Ollama.';
+        }
+    }
+
+    async function saveOllamaConfig() {
+        const status = document.getElementById('ai-config-status');
+        const preferredModel = document.getElementById('preferred-model').value;
+        try {
+            const response = await fetch('/api/config/ollama', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preferredModel === 'ollama' ? {
+                    preferred_model: preferredModel,
+                    host: document.getElementById('ollama-url').value.trim(),
+                    model: document.getElementById('ollama-model').value
+                } : { preferred_model: preferredModel })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to save the configuration.');
+            }
+
+            if (preferredModel === 'ollama') {
+                document.getElementById('ollama-model').dataset.savedModel = document.getElementById('ollama-model').value;
+            }
+            status.textContent = data.message;
+        } catch (error) {
+            status.textContent = error.message || 'Failed to save the AI configuration.';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            loadPrompts();
+            loadCodeDirectory();
+        } catch (e) {
+            console.error('Error loading prompts:', e);
+        }
+
+        const menuBtn = document.getElementById('menuBtn');
+        const mainMenu = document.getElementById('mainMenu');
+
+        if (menuBtn && mainMenu) {
+            menuBtn.addEventListener('click', (e) => {
+                console.log('Menu button clicked');
+
+                e.stopPropagation();
+                mainMenu.classList.toggle('hidden');
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (menuBtn && mainMenu && !menuBtn.contains(e.target) && !mainMenu.contains(e.target)) {
+                mainMenu.classList.add('hidden');
+            }
+        });
+
+        ['evaluator', 'fixer'].forEach((promptType) => {
+            const textarea = document.getElementById(`${promptType}-prompt-textarea`);
+            const editButton = document.getElementById(`${promptType}-prompt-edit`);
+            const saveButton = document.getElementById(`${promptType}-prompt-save`);
+
+            editButton.addEventListener('click', () => {
+                textarea.readOnly = false;
+                textarea.classList.remove('bg-gray-50');
+                editButton.classList.add('hidden');
+                saveButton.classList.remove('hidden');
+                textarea.focus();
+            });
+            saveButton.addEventListener('click', () => savePrompt(promptType));
+        });
+
+        const codeDirectoryInput = document.getElementById('code-directory-input');
+        const codeDirectoryEdit = document.getElementById('code-directory-edit');
+        const codeDirectorySave = document.getElementById('code-directory-save');
+
+        codeDirectoryEdit.addEventListener('click', () => {
+            codeDirectoryInput.readOnly = false;
+            codeDirectoryInput.classList.remove('bg-gray-50');
+            codeDirectoryEdit.classList.add('hidden');
+            codeDirectorySave.classList.remove('hidden');
+            codeDirectoryInput.focus();
+        });
+        codeDirectorySave.addEventListener('click', saveCodeDirectory);
+
+        const preferredModel = document.getElementById('preferred-model');
+        const ollamaSettings = document.getElementById('ollama-settings');
+        const aiConfigStatus = document.createElement('p');
+        aiConfigStatus.id = 'ai-config-status';
+        aiConfigStatus.className = 'text-sm text-gray-600';
+        aiConfigStatus.setAttribute('role', 'status');
+        aiConfigStatus.setAttribute('aria-live', 'polite');
+        document.getElementById('ollama-save-config').parentElement.prepend(aiConfigStatus);
+        const updateOllamaVisibility = () => {
+            const isOllama = preferredModel.value === 'ollama';
+            ollamaSettings.classList.toggle('hidden', !isOllama);
+            if (isOllama) {
+                loadOllamaModels();
+            }
+        };
+
+        preferredModel.addEventListener('change', updateOllamaVisibility);
+        document.getElementById('ollama-test-url').addEventListener('click', testOllamaUrl);
+        document.getElementById('ollama-refresh-models').addEventListener('click', loadOllamaModels);
+        document.getElementById('ollama-save-config').addEventListener('click', saveOllamaConfig);
+        loadOllamaConfig();
+
+        // Modal Logic
+        const settingsLink = document.getElementById('settingsLink');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeModal = document.getElementById('closeModal');
+        const cancelModal = document.getElementById('cancelModal');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        if (settingsLink && settingsModal) {
+            settingsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Settings link clicked');
+                settingsModal.classList.remove('hidden');
+            });
+        }
+
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                settingsModal.classList.add('hidden');
+            });
+        }
+
+        if (cancelModal) {
+            cancelModal.addEventListener('click', () => {
+                settingsModal.classList.add('hidden');
+            });
+        }
+
+        // Close modal on backdrop click
+        if (settingsModal) {
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+        }
+
+        // Tab switching logic
+        if (tabBtns.length > 0) {
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTab = btn.getAttribute('data-tab');
+                    
+                    // Update active button styles
+                    tabBtns.forEach(b => {
+                        b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                        b.classList.add('text-gray-600');
+                    });
+                    btn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                    btn.classList.remove('text-gray-600');
+
+                    // Update active content
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    const targetContent = document.getElementById(`tab-${targetTab}`);
+                    if (targetContent) {
+                        targetContent.classList.remove('hidden');
+                    }
+                });
+            });
+        }
+    });
+    </script>
+</body>
+</html>
+

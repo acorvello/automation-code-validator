@@ -1,0 +1,27 @@
+
+. Artefatos de Estado e Orquestração (Core do LangGraph)
+
+Como o LangGraph é baseado em máquinas de estados, você precisa documentar e tipar o fluxo de dados estritamente.
+• Graph State Schema (Definição do State do Python): Um arquivo de definição (utilizando TypedDict ou Pydantic) que define exatamente quais variáveis trafegam entre os nós. No seu caso, deve conter chaves como raw_cypress_logs, detected_anomalies, evaluation_metrics e retry_count.
+• Grafo de Transição de Estados (State Machine Diagram): Um mapeamento visual ou em formato Mermaid.js que define explicitamente os nós (ex: Parser, Evaluator, Fixer) e as arestas condicionais (Conditional Edges). Isso serve para debugar loops infinitos e mapear o fan-out paralelo.
+
+2. Artefatos de Engenharia de Prompt e Estruturação de Saída
+
+Para converter saídas complexas de múltiplos nós em JSONs discretos e logs de anomalias sem variação, utilize:
+• Pydantic Output Schemas (Strict JSON): Artefatos de código que servem como o "contrato" da LLM. Utilizando os recursos de response_format={"type": "json_object"} ou with_structured_output do LangChain, você garante que o nó de avaliação retorne estritamente a estrutura esperada (ex: métricas de robustez do seletor, nível de flakiness).
+• System Prompts de Restrição Hermética: Documentos de texto para cada nó do grafo. O prompt do nó avaliador deve conter regras determinísticas de negação (ex: "Você nunca deve sugerir alterações de código se o seletor atual for único. Se houver ambiguidade, retorne estritamente o código de erro ERR_AMBIGUOUS_SELECTOR").
+
+3. Artefatos de Integração e Dados (A Ponte Pipeline \(\leftrightarrow \) Cypress)
+
+Para o container da pipeline ler e executar o que o grafo processou:
+• Anomalies & Metrics Schema (O artefato de saída do container): Um modelo de arquivo JSON padronizado que o seu container de IA vai gerar para que a pipeline de CI/CD ou o Cypress consiga consumir.
+• Meta-Test Fixtures / Mocks: Arquivos de logs reais e fixtures do Cypress (testes que falharam por flakiness, seletores quebrados propositalmente) que servirão como o seu dataset de teste para avaliar se o seu agente está acertando o diagnóstico durante a fase de pesquisa.
+
+Tabela de Priorização de Artefatos para o seu PoC
+
+
+Artefato	Ferramenta Recomendada	Por que é crítico para o seu projeto?
+State TypedDict/Pydantic	Python / LangGraph	Garante que o estado compartilhado entre nós paralelos (fan-out) não sofra concorrência destrutiva ou perda de dados.
+Mermaid.js State Graph	Markdown / GitHub	Define as regras das conditional routing edges para evitar latência excessiva e loops infinitos de avaliação.
+Pydantic Structured Output	LangChain / OpenAI API	Força a IA a gerar métricas estruturadas e logs técnicos limpos, eliminando o lixo textual de conversas comuns.
+Test Fixtures (Logs do Cypress)	JSON / JavaScript	Serve como o ambiente de validação do próprio agente (garante que a IA não está alucinando nos diagnósticos).
