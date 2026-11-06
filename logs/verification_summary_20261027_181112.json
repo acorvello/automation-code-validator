@@ -1,0 +1,236 @@
+[
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_2",
+    "description": "Line 2: [01:20:31] ERROR: Could not find element: [data-cy=\"login-submit\"] (cy.get('[data-cy=\"login-submit\"]'))",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\cypress_javascript.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_2",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The selector [data-cy=",
+      "needs_fix": false,
+      "recommendation": ""
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: [01:20:35] ERROR: Timed out after 30000ms",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error message indicates a timeout occurred, but the specific element or set of elements that caused the timeout is not specified in the log. This suggests multiple elements matched the selector, leading to ambiguity.",
+      "needs_fix": true,
+      "recommendation": "Change the selector to be more specific by adding a more precise attribute or using a more descriptive selector. If you cannot change the selector, consider increasing the timeout or using a more reliable locator strategy."
+    },
+    "fix_suggestion": "{\n  \"message\": \"The error message indicates that the element with ID 'password-field' could not be found after a timeout. The locator is '#password-field'. It is recommended to use a unique ID or a short, stable CSS locator to ensure the element is found and interactable.\"\n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: [01:20:36] ERROR: Could not find element: #password-field",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#password-field' matches multiple elements in the DOM. The test needs to identify which specific element is intended.",
+      "needs_fix": true,
+      "recommendation": "Use a more specific selector, such as a class or an ID that uniquely identifies the password field."
+    },
+    "fix_suggestion": "{\n  \"message\": \"The error message indicates that the element with ID 'password-field' could not be found after a timeout. The locator is '#password-field'. It is recommended to use a unique ID or a short, stable CSS locator to ensure the element is found and interactable.\"\n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: [01:20:38] ERROR: Command failed: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The error indicates that the click() command on the element with ID #submit-btn failed. This is a flaky selector, as it does not guarantee that the element will be found or interactable.",
+      "needs_fix": true,
+      "recommendation": "Change the locator to the correct element that is expected to be clicked. If the element is dynamically rendered, consider using an event-based synchronization mechanism like `cy.contains()` or `cy.get().contains()`. Ensure that the element is actually present and interactable in the current test context."
+    },
+    "fix_suggestion": "{\n  \"message\": \"The error message indicates that the element with ID 'password-field' could not be found after a timeout. The locator is '#password-field'. It is recommended to use a unique ID or a short, stable CSS locator to ensure the element is found and interactable.\"\n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: [01:20:35] ERROR: Timed out after 30000ms",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "INFRA_FAILURE",
+      "reasoning": "The test encountered an HTTP 504 error (timeout) after 30 seconds, indicating a network issue.",
+      "needs_fix": false,
+      "recommendation": "Ensure that the server hosting the application is responsive and does not return 504 errors. If the server is not reachable, retry the request with exponential backoff or use a load balancer."
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: [01:20:36] ERROR: Could not find element: #password-field",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The log indicates that the element with ID 'password-field' was not found, which can be due to several reasons, such as dynamic rendering or the element being hidden. There is no explicit evidence of multiple matches, so this is not an ambiguous selector. The flakiness score is 0.8, which is below the threshold for a fixable anomaly.",
+      "needs_fix": true,
+      "recommendation": "Verify that the element with ID 'password-field' is present on the page and not hidden. Use event-based synchronization if necessary for an animation. If the element is dynamically rendered, ensure that the locator is updated accordingly."
+    },
+    "fix_suggestion": "{ \"code\": \"cy.get('#password-field')\" }",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: [01:20:38] ERROR: Command failed: click() on #submit-btn",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "FLAKY_SELECTOR",
+      "reasoning": "The error indicates that the `click()` command failed on the element with the ID `submit-btn`. The flakiness score is 0.5, which is below the threshold for considering it a significant issue. Since the element is not found, changing the locator is not recommended. Instead, consider event-based synchronization or using wait functions to ensure the element is ready before interacting with it.",
+      "needs_fix": false,
+      "recommendation": "Consider using an event listener to wait for the button to be clicked, or implement explicit waits using `cy.wait()` to ensure the element is visible and enabled before clicking. If the button has a dynamic rendering mechanism, use `cy.contains()` to wait for the button text to appear or the element to be interactable."
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: com.microsoft.playwright.PlaywrightException: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_java.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator `#login-submit` resolved to 2 elements, indicating ambiguity. To fix this, the test should either select one of the elements or use a more specific selector.",
+      "needs_fix": true,
+      "recommendation": "Ensure the selector is unique or use a more specific selector, such as `#login-submit button` or `#login-submit[disabled]`."
+    },
+    "fix_suggestion": "{\n  \"error\": \"ERR_AMBIGUOUS_SELECTOR_1\"\n}",
+    "framework": "Playwright",
+    "language": "Java"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_javascript.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#login-submit' resolved to 2 elements, which indicates an ambiguous selector. This error can be resolved by choosing the correct element among the two. For example, if both elements have the same class, use a class selector instead of an ID.",
+      "needs_fix": true,
+      "recommendation": "Use a class selector instead of an ID. Example: 'div.login-button'"
+    },
+    "fix_suggestion": "{\n  \"locator\": \"by.id('login-submit')\"\n}",
+    "framework": "Playwright",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: playwright._impl._errors.Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_python.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#login-submit' resolved to 2 elements, which indicates ambiguity. The specific elements could be different each time the test is run due to dynamic rendering.",
+      "needs_fix": true,
+      "recommendation": "Verify the selector by using event-based synchronization (e.g., `waitForSelector` with a wait strategy) to ensure the correct element is selected each time. This can help resolve the ambiguity."
+    },
+    "fix_suggestion": "{\n  \"error\": \"ERR_AMBIGUOUS_SELECTOR_1\",\n  \"message\": \"Resolved to 2 elements: #login-submit\",\n  \"selector\": \"#login-submit\"\n}",
+    "framework": "Playwright",
+    "language": "Python"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: org.openqa.selenium.NoSuchElementException: Unable to locate element: {\"method\":\"css selector\",\"selector\":\"#login-submit\"}",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_java.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The selector '#login-submit' can be either a button or a link. The error log suggests that the element might be either a button or a link, making it ambiguous. To fix this, one can use a more specific selector like a button or a link class.",
+      "needs_fix": true,
+      "recommendation": "Use a more specific selector, such as `button#login-submit`, `a#login-submit`, or `button.login-submit`, to identify the correct element."
+    },
+    "fix_suggestion": "{ \"selector\": \"#login-submit\", \"method\": \"css selector\" }",
+    "framework": "Selenium",
+    "language": "Java"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: NoSuchElementError: Unable to locate element: \"#login-submit\"",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_javascript.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#login-submit' is ambiguous as there are multiple elements with this ID. This is a known issue in Selenium and can be fixed by using a more specific selector.",
+      "needs_fix": true,
+      "recommendation": "Change the locator to 'input[name=\"username\"] && input[name=\"password\"] && button[type=\"submit\"]'. This will uniquely identify the login button, regardless of its position in the DOM."
+    },
+    "fix_suggestion": "{\n  \"corrected_locator\": \"By.cssSelector('button[type=\\\"submit\\\"]')\"\n}",
+    "framework": "Selenium",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: selenium.common.exceptions.NoSuchElementException: Message: Unable to locate element: \"#login-submit\"",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_python.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error message suggests that the element with the id 'login-submit' was not found, but multiple elements matched the selector. This is an ambiguous selector, and changing the selector to ensure a unique element is found would resolve the issue.",
+      "needs_fix": true,
+      "recommendation": "Use the 'By.id()' method to explicitly specify the element's ID to ensure a unique element is found. Example: `driver.find_element(By.ID, 'login-submit')`."
+    },
+    "fix_suggestion": "{ \"code\": \"cy.get('#login-submit')\" }",
+    "framework": "Selenium",
+    "language": "Python"
+  }
+]

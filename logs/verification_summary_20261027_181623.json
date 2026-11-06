@@ -1,0 +1,236 @@
+[
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_2",
+    "description": "Line 2: [01:20:31] ERROR: Could not find element: [data-cy=\"login-submit\"] (cy.get('[data-cy=\"login-submit\"]'))",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\cypress_javascript.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_2",
+      "classification": "UNKNOWN",
+      "reasoning": "",
+      "needs_fix": false,
+      "recommendation": ""
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: [01:20:35] ERROR: Timed out after 30000ms",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "INFRA_FAILURE",
+      "reasoning": "The test encountered a network error after 30000ms, which indicates an infrastructure failure.",
+      "needs_fix": false,
+      "recommendation": "Check network connectivity and ensure that the server is up and running."
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: [01:20:36] ERROR: Could not find element: #password-field",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator `#password-field` was not found. Multiple elements matched the selector. Consider using a more specific selector or modifying the code to find the correct element.",
+      "needs_fix": true,
+      "recommendation": "Verify that the element exists on the page and use a more specific selector or modify the code to find the correct element."
+    },
+    "fix_suggestion": "{\n  \"code\": \"cy.get('#password-field')\"\n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: [01:20:38] ERROR: Command failed: click() on #submit-btn",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs - Copia.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "LOGIC_OR_STATE_ERROR",
+      "reasoning": "The error indicates that the `click()` command failed on the element with the ID `submit-btn`. This is a business-logic error, as the click action was not performed on the intended element.",
+      "needs_fix": false,
+      "recommendation": "Review the element selector and ensure it correctly identifies the `#submit-btn` element. Verify that the element is visible and interactable before performing the click action. Use `cy.get('#submit-btn').click()` to perform the click action."
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_TIMEOUT_4",
+    "description": "Line 4: [01:20:35] ERROR: Timed out after 30000ms",
+    "status": "evaluated",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": false,
+    "evaluation": {
+      "anomaly_id": "ERR_TIMEOUT_4",
+      "classification": "INFRA_FAILURE",
+      "reasoning": "The error message indicates a timeout, which is an infrastructure failure. There is no specific selector or code context provided in the log to determine the exact cause or fix.",
+      "needs_fix": false,
+      "recommendation": "Check the network settings, server configuration, or retry the test."
+    },
+    "fix_suggestion": null,
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_5",
+    "description": "Line 5: [01:20:36] ERROR: Could not find element: #password-field",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error message indicates that Cypress could not find an element with the ID `#password-field`. This suggests multiple elements could have been matched, possibly due to dynamic rendering or changes in the DOM structure. The flakiness score of 0.8 suggests the failure might be intermittent but still present. It is recommended to check the DOM structure and ensure that the ID `#password-field` is correctly applied and visible on the page.",
+      "needs_fix": true,
+      "recommendation": "Review the DOM structure and ensure that the ID `#password-field` is correctly applied and visible on the page. If dynamic rendering is suspected, use a more specific selector or wait for the element to be present before interacting with it. If the element is still not found, consider adding explicit wait logic to ensure the element is present before interacting with it. Additionally, ensure that the ID is unique and not reused in other parts of the application. "
+    },
+    "fix_suggestion": "{ \n  \"code\": \"// Use Cypress commands to find the element with the correct selector\\n Cypress.get('#password-field').type('secure-password');\\n Cypress.get('#submit-btn').click();\" \n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_COMMAND_FAILED_7",
+    "description": "Line 7: [01:20:38] ERROR: Command failed: click() on #submit-btn",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_COMMAND_FAILED_7",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error message suggests that the element with the ID 'submit-btn' was not found by Cypress, which is an ambiguous error.",
+      "needs_fix": true,
+      "recommendation": "Ensure the element with the ID 'submit-btn' is present on the page before calling the click() method. You can add a wait command before the click() method if the element is dynamically loaded."
+    },
+    "fix_suggestion": "{ \n  \"code\": \"// Use Cypress commands to find the element with the correct selector\\n Cypress.get('#password-field').type('secure-password');\\n Cypress.get('#submit-btn').click();\" \n}",
+    "framework": "Cypress",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: com.microsoft.playwright.PlaywrightException: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_java.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The Playwright log explicitly reports that the locator '#login-submit' resolved to 2 elements, indicating multiple elements matched the selector. To fix this issue, you should explicitly specify which element was intended, or use a more precise selector. If you are unsure, you can add a condition to filter the elements.",
+      "needs_fix": true,
+      "recommendation": "Use the selector explicitly: '#login-submit' or use a more precise selector."
+    },
+    "fix_suggestion": "{ \"code\": \"//cy.get('#login-submit')\" }",
+    "framework": "Playwright",
+    "language": "Java"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_javascript.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#login-submit' resolved to 2 elements, indicating that the element was found but there might be multiple elements on the page. The use of strict mode violations suggests that the locator is not fully qualified or ambiguous, requiring manual verification of the intended element.",
+      "needs_fix": true,
+      "recommendation": "To fix this issue, you may need to provide more specific information about the element you intended to select. This can be done by inspecting the element's structure on the page and using a more precise selector. Alternatively, you can adjust the code to use a more robust locator that is less prone to ambiguity."
+    },
+    "fix_suggestion": "{\n    \"code\": \"cy.get('#login-submit')\"\n}",
+    "framework": "Playwright",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_AMBIGUOUS_SELECTOR_1",
+    "description": "Line 1: playwright._impl._errors.Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_python.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator '#login-submit' resolved to 2 elements, indicating an ambiguous selector. We cannot determine which element was intended without additional context.",
+      "needs_fix": true,
+      "recommendation": "Please provide more information about the context in which the selector is used to determine which element was intended."
+    },
+    "fix_suggestion": "{\n  \"code\": \"cy.get('#login-submit')\"\n}",
+    "framework": "Playwright",
+    "language": "Python"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: org.openqa.selenium.NoSuchElementException: Unable to locate element: {\"method\":\"css selector\",\"selector\":\"#login-submit\"}",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_java.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The locator `#login-submit` did not match any element, which is an ambiguous selector error.",
+      "needs_fix": true,
+      "recommendation": "Review the CSS selector and ensure it uniquely identifies the login submit button. Consider using a more specific selector if possible."
+    },
+    "fix_suggestion": "{\n  \"selector\": \"button[data-testid='login-submit']\"\n}",
+    "framework": "Selenium",
+    "language": "Java"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: NoSuchElementError: Unable to locate element: \"#login-submit\"",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_javascript.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error indicates that the browser could not locate the element with the ID '#login-submit'. This could be due to several reasons, such as the element being dynamically rendered or not fully loaded by the time the test runs. To resolve this, the test should wait for the element to be present in the DOM before interacting with it. Additionally, the test should ensure that the element is clickable or interactable by using the `cy.contains()` or `cy.get()` commands to locate the element first.",
+      "needs_fix": true,
+      "recommendation": "Wait for the element to be present in the DOM before interacting with it. Use the `cy.contains()` or `cy.get()` commands to locate the element first. For example:"
+    },
+    "fix_suggestion": "{\n  \"code\": \"cy.get('#login-submit');\"\n}",
+    "framework": "Selenium",
+    "language": "JavaScript"
+  },
+  {
+    "id": "ERR_ELEMENT_NOT_FOUND_1",
+    "description": "Line 1: selenium.common.exceptions.NoSuchElementException: Message: Unable to locate element: \"#login-submit\"",
+    "status": "fix_suggested",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_python.txt",
+    "corrected": false,
+    "needs_fix": true,
+    "evaluation": {
+      "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+      "classification": "ERR_AMBIGUOUS_SELECTOR",
+      "reasoning": "The error message indicates that the element with the ID 'login-submit' was not found. The locator seems to be correct, but there might be an issue with the presence of the element. This is a common error that can be resolved by checking if the element is indeed present on the page before attempting to interact with it.",
+      "needs_fix": true,
+      "recommendation": "Verify that the element with the ID 'login-submit' exists on the page before attempting to interact with it. If the element is not present, the error will be thrown again."
+    },
+    "fix_suggestion": "{\n    \"framework\": \"Selenium\",\n    \"language\": \"Python\",\n    \"output\": \"Page.getByRole('button', {'name': 'Login'})\"\n}",
+    "framework": "Selenium",
+    "language": "Python"
+  }
+]

@@ -5,12 +5,12 @@ REM Criar atalho para o Cypress LangGraph Validator Server
 cd /d "%~dp0"
 
 SET SCRIPT_PATH=%CD%\start_server.bat
-SET SHORTCUT_NAME="Cypress Dashboard"
+SET SHORTCUT_NAME="Automation Code Validator Dashboard"
 SET TARGET_FILE=script: %SCRIPT_PATH%
 
-echo ========================================
-echo   Criando atalhos do Cypress Dashboard
-echo ========================================
+echo ==========================================================
+echo   Criando atalhos do Automation Code Validator Dashboard
+echo ==========================================================
 echo.
 
 REM Criar arquivo INI para o Windows 10/11
@@ -27,11 +27,11 @@ REM Criar comando para executar o script via rundll32
 powershell -Command "$shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut('%TEMP%\CypressDashboard.lnk'); $shortcut.TargetPath='%SCRIPT_PATH%'; $shortcut.WorkingDirectory='%CD%'; $shortcut.Description='Cypress LangGraph Validator Server'; $shortcut.Save()"
 
 if ($LASTEXITCODE) -eq 0 (
-    echo ✅ Atalho criado em %TEMP%\CypressDashboard.lnk
+    echo Atalho criado em %TEMP%\CypressDashboard.lnk
     echo.
     echo Para abrir, arraste este arquivo para o Desktop ou execute diretamente.
 ) else (
-    echo ⚠️  Não foi possível criar atalho automaticamente.
+    echo  Não foi possível criar atalho automaticamente.
     echo Use start_server.bat manualmente.
 )
 

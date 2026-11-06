@@ -1,0 +1,250 @@
+[
+  {
+    "file_name": "cypress_javascript.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\cypress_javascript.txt",
+    "framework": "Cypress",
+    "framework_type": "Cypress",
+    "language": "JavaScript",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_2",
+        "description": "Line 2: [01:20:31] ERROR: Could not find element: [data-cy=\"login-submit\"] (cy.get('[data-cy=\"login-submit\"]'))",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\cypress_javascript.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_2",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The parser identified an element lookup failure with a high flakiness score.",
+          "needs_fix": true,
+          "recommendation": "Use the detected framework's stable locator strategy."
+        },
+        "fix_suggestion": "{ \"locator\": \"[data-cy=\\\"login-submit\\\"]\" }"
+      }
+    ]
+  },
+  {
+    "file_name": "mock_logs.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+    "framework": "Cypress",
+    "framework_type": "Cypress",
+    "language": "JavaScript",
+    "anomaly_count": 3,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_UNKNOWN_TIMEOUT_4",
+        "description": "Line 4: [01:20:35] ERROR: Timed out after 30000ms",
+        "status": "evaluated",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+        "corrected": false,
+        "needs_fix": false,
+        "evaluation": {
+          "anomaly_id": "ERR_UNKNOWN_TIMEOUT_4",
+          "classification": "UNCLASSIFIED",
+          "reasoning": "The timeout does not identify a network failure or a specific element lookup.",
+          "needs_fix": false,
+          "recommendation": "Inspect the original failure context before changing the test."
+        },
+        "fix_suggestion": null
+      },
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_5",
+        "description": "Line 5: [01:20:36] ERROR: Could not find element: #password-field",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_5",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The parser identified an element lookup failure with a high flakiness score.",
+          "needs_fix": true,
+          "recommendation": "Use the detected framework's stable locator strategy."
+        },
+        "fix_suggestion": "{ \"locator\": \"#password-field\" }"
+      },
+      {
+        "id": "ERR_COMMAND_FAILED_7",
+        "description": "Line 7: [01:20:38] ERROR: Command failed: click() on #submit-btn",
+        "status": "evaluated",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\mock_logs.txt",
+        "corrected": false,
+        "needs_fix": false,
+        "evaluation": {
+          "anomaly_id": "ERR_COMMAND_FAILED_7",
+          "classification": "LOGIC_OR_STATE_ERROR",
+          "reasoning": "The command failed, indicating a business-logic or application-state mismatch. The locator `#submit-btn` is not defined or the element is not interactable.",
+          "needs_fix": false,
+          "recommendation": "Verify the existence and interactability of the element before clicking it. If the element is dynamically loaded or not yet visible, implement a wait before clicking it. Ensure that the element has the expected text `Success` to receive the expected response. If the element is part of a table or list, use appropriate data attributes or CSS selectors to locate it."
+        },
+        "fix_suggestion": null
+      }
+    ]
+  },
+  {
+    "file_name": "playwright_java.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_java.txt",
+    "framework": "Playwright",
+    "framework_type": "Playwright",
+    "language": "Java",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_AMBIGUOUS_SELECTOR_1",
+        "description": "Line 1: com.microsoft.playwright.PlaywrightException: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_java.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+          "classification": "ERR_AMBIGUOUS_SELECTOR",
+          "reasoning": "The parser found explicit evidence that multiple elements matched.",
+          "needs_fix": true,
+          "recommendation": "Use the supplied context to identify a unique locator; do not guess."
+        },
+        "fix_suggestion": "{ \"locator\": \"label[for='login-form-input']\" }"
+      }
+    ]
+  },
+  {
+    "file_name": "playwright_javascript.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_javascript.txt",
+    "framework": "Playwright",
+    "framework_type": "Playwright",
+    "language": "JavaScript",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_AMBIGUOUS_SELECTOR_1",
+        "description": "Line 1: Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_javascript.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+          "classification": "ERR_AMBIGUOUS_SELECTOR",
+          "reasoning": "The parser found explicit evidence that multiple elements matched.",
+          "needs_fix": true,
+          "recommendation": "Use the supplied context to identify a unique locator; do not guess."
+        },
+        "fix_suggestion": "{\n  \"locator\": \"#login-submit\"\n}"
+      }
+    ]
+  },
+  {
+    "file_name": "playwright_python.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_python.txt",
+    "framework": "Playwright",
+    "framework_type": "Playwright",
+    "language": "Python",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_AMBIGUOUS_SELECTOR_1",
+        "description": "Line 1: playwright._impl._errors.Error: strict mode violation: locator(\"#login-submit\") resolved to 2 elements",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\playwright_python.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_AMBIGUOUS_SELECTOR_1",
+          "classification": "ERR_AMBIGUOUS_SELECTOR",
+          "reasoning": "The parser found explicit evidence that multiple elements matched.",
+          "needs_fix": true,
+          "recommendation": "Use the supplied context to identify a unique locator; do not guess."
+        },
+        "fix_suggestion": "{ \"locator\": \"#login-submit[data-testid='login-submit-button']\" }"
+      }
+    ]
+  },
+  {
+    "file_name": "selenium_java.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_java.txt",
+    "framework": "Selenium",
+    "framework_type": "Selenium",
+    "language": "Java",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_1",
+        "description": "Line 1: org.openqa.selenium.NoSuchElementException: Unable to locate element: {\"method\":\"css selector\",\"selector\":\"#login-submit\"}",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_java.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The parser identified an element lookup failure with a high flakiness score.",
+          "needs_fix": true,
+          "recommendation": "Use the detected framework's stable locator strategy."
+        },
+        "fix_suggestion": "{ \"locator\": \"input[name='login-submit']\" }"
+      }
+    ]
+  },
+  {
+    "file_name": "selenium_javascript.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_javascript.txt",
+    "framework": "Selenium",
+    "framework_type": "Selenium",
+    "language": "JavaScript",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_1",
+        "description": "Line 1: NoSuchElementError: Unable to locate element: \"#login-submit\"",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_javascript.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The parser identified an element lookup failure with a high flakiness score.",
+          "needs_fix": true,
+          "recommendation": "Use the detected framework's stable locator strategy."
+        },
+        "fix_suggestion": "{ \"locator\": \"#login-submit\", \"needs_fix\": true }"
+      }
+    ]
+  },
+  {
+    "file_name": "selenium_python.txt",
+    "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_python.txt",
+    "framework": "Selenium",
+    "framework_type": "Selenium",
+    "language": "Python",
+    "anomaly_count": 1,
+    "needs_fix": true,
+    "anomalies": [
+      {
+        "id": "ERR_ELEMENT_NOT_FOUND_1",
+        "description": "Line 1: selenium.common.exceptions.NoSuchElementException: Message: Unable to locate element: \"#login-submit\"",
+        "status": "fix_suggested",
+        "file_path": "D:\\projetos\\automation-code-validator\\data\\fixtures\\selenium_python.txt",
+        "corrected": false,
+        "needs_fix": true,
+        "evaluation": {
+          "anomaly_id": "ERR_ELEMENT_NOT_FOUND_1",
+          "classification": "FLAKY_SELECTOR",
+          "reasoning": "The parser identified an element lookup failure with a high flakiness score.",
+          "needs_fix": true,
+          "recommendation": "Use the detected framework's stable locator strategy."
+        },
+        "fix_suggestion": "{ \"locator\": \"#login-submit\" }"
+      }
+    ]
+  }
+]

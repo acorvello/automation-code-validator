@@ -19,3 +19,6 @@ htmlcov/
 .env
 .venv/
 .DS_Store
+
+#Backup Files
+*.bkp
