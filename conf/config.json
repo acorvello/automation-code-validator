@@ -9,6 +9,9 @@
     "files": {
         "input_path": "data/fixtures"
     },
+    "interface": {
+        "theme": "light"
+    },
     "prompts": {
         "evaluator": "src/agents/prompts/evaluator_prompt.txt",
         "fixer": "src/agents/prompts/fixer_prompt.txt"

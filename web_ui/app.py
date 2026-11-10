@@ -1,17 +1,19 @@
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
-import os
-import sys
-import json
 import datetime
 import ipaddress
+import json
+import os
+import sys
 import threading
 import uuid
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import requests
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
-# Adicionar o diretório raiz ao path para imports do src
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from src.main import check_ollama_ready, run_validation_graph, stream_validation_graph
 from src.utils.config import get_input_path, get_prompt_path, load_config, save_config
@@ -21,7 +23,7 @@ from src.utils.technology_detector import detect_technology
 app = Flask(__name__)
 
 # Configurações
-LOGS_DIR = os.path.abspath(os.path.join(os.getcwd(), "logs"))
+LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
 active_runs = {}
 active_runs_lock = threading.Lock()
 
@@ -136,22 +138,40 @@ def get_logs():
 @app.route('/api/logs-details/<filename>', methods=['GET'])
 def get_log_details(filename):
     """Retorna os detalhes completos de um arquivo de log específico"""
-    if os.path.exists(LOGS_DIR):
-        path = os.path.join(LOGS_DIR, filename)
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                file_stat = os.stat(path)
-                created_time = datetime.datetime.fromtimestamp(file_stat.st_mtime)
-                return jsonify({
-                    "filename": filename,
-                    "content": data,
-                    "created_time": created_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "size_bytes": file_stat.st_size
-                })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"error": f"Arquivo não encontrado: {filename}"}), 404
+    if (
+        not filename.lower().endswith(".json")
+        or os.path.basename(filename) != filename
+        or filename in {".", ".."}
+    ):
+        return jsonify({"error": "Arquivo de log inválido."}), 404
+
+    logs_root = Path(LOGS_DIR).resolve()
+    try:
+        path = (logs_root / filename).resolve(strict=True)
+        path.relative_to(logs_root)
+    except (FileNotFoundError, NotADirectoryError, RuntimeError, ValueError):
+        return jsonify({"error": f"Arquivo não encontrado: {filename}"}), 404
+    except OSError as error:
+        return jsonify({"error": f"Não foi possível acessar o arquivo de log: {error}"}), 500
+
+    try:
+        if not path.is_file():
+            raise FileNotFoundError(filename)
+        with path.open("r", encoding="utf-8") as log_file:
+            data = json.load(log_file)
+        file_stat = path.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return jsonify({"error": f"Arquivo não encontrado: {filename}"}), 404
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        return jsonify({"error": f"Não foi possível ler o arquivo de log: {error}"}), 500
+
+    created_time = datetime.datetime.fromtimestamp(file_stat.st_mtime)
+    return jsonify({
+        "filename": filename,
+        "content": data,
+        "created_time": created_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "size_bytes": file_stat.st_size
+    })
 
 @app.route('/api/run', methods=['POST'])
 def run_validation():
@@ -425,23 +445,34 @@ def get_prompts():
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 prompts[prompt_type] = f.read()
-        except Exception as e:
-            prompts[prompt_type] = ""
+        except OSError as error:
+            return jsonify({
+                "error": f"Não foi possível ler o prompt {prompt_type}: {error}"
+            }), 500
     return jsonify(prompts)
 
 @app.route('/api/prompts', methods=['POST'])
 def save_prompts():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Envie os prompts como um objeto JSON."}), 400
+
     prompts = ['evaluator', 'fixer']
     for prompt_type in prompts:
         content = data.get(prompt_type)
         if content is not None:
+            if not isinstance(content, str):
+                return jsonify({
+                    "error": f"O conteúdo do prompt {prompt_type} deve ser texto."
+                }), 400
             file_path = get_prompt_path(prompt_type)
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
-            except Exception as e:
-                return jsonify({"error": f"Erro ao salvar {prompt_type}: {str(e)}"}), 500
+            except OSError as error:
+                return jsonify({
+                    "error": f"Não foi possível salvar o prompt {prompt_type}: {error}"
+                }), 500
     
     return jsonify({"message": "Prompts salvos com sucesso!"})
 
@@ -465,6 +496,32 @@ def save_config_input_path():
         return jsonify({"error": f"Erro ao salvar o diretório: {error}"}), 500
 
     return jsonify({"message": "Diretório salvo com sucesso!", "input_path": input_path})
+
+@app.route('/api/config/interface', methods=['GET'])
+def get_interface_config():
+    config = load_config()
+    return jsonify({"theme": config["interface"]["theme"]})
+
+@app.route('/api/config/interface', methods=['POST'])
+def save_interface_config():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Envie as opções da interface como JSON."}), 400
+
+    theme = data.get("theme")
+    if theme not in {"system", "light", "dark"}:
+        return jsonify({
+            "error": "Theme must be one of: system, light, or dark."
+        }), 400
+
+    config = load_config()
+    config["interface"]["theme"] = theme
+    try:
+        save_config(config)
+    except OSError as error:
+        return jsonify({"error": f"Não foi possível salvar o tema: {error}"}), 500
+
+    return jsonify({"message": "Interface preference saved.", "theme": theme})
 
 def _validate_ollama_base_url(base_url):
     if not isinstance(base_url, str):
@@ -545,4 +602,4 @@ def get_ollama_models():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)

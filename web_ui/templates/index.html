@@ -1,119 +1,371 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-theme="light">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#171824">
+    <meta name="description" content="Analyze browser automation logs and review AI-assisted validation findings locally.">
     <title>Automation Code Validator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .console-line { font-family: monospace; padding: 2px; margin-bottom: 1px; border-radius: 3px; white-space: pre-wrap; }
-        .info { color: #64b5f6; } .success { color: #a5d6a7; } .error { color: #ef9a9a; }
-        .log-details-panel { background: #1e293b; border-left: 2px solid #38bdf8; padding: 12px; max-height: 400px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f5f9; }
-        @keyframes inspection-progress-sweep {
-            from { transform: translateX(-120%); }
-            to { transform: translateX(320%); }
-        }
-        .inspection-progress-sweep { animation: inspection-progress-sweep 1.8s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) {
-            .inspection-progress-sweep { animation: none; width: 100%; opacity: 0.55; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body class="bg-gray-100">
-    <nav class="bg-blue-600 text-white p-4 w-full flex justify-between items-center font-bold relative">
-    <span class="text-xl">Automation Code Validator</span>
-    <button id="menuBtn" type="button" class="hover:bg-blue-700 p-1 rounded transition-colors cursor-pointer">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-    </button>
-<div id="mainMenu" class="hidden absolute right-4 top-full bg-white text-gray-800 shadow-xl rounded-lg p-4 w-56 z-[100] border border-gray-200">
-    <ul class="space-y-4">
-        <li>
-            <a href="#" id="settingsLink" class="block hover:bg-blue-50 p-2 rounded transition-colors">⚙️ Settings</a>
-        </li>
-        <li>
-            <a href="#" class="block hover:bg-blue-50 p-2 rounded transition-colors">👤 Users</a>
-        </li>
-        <li>
-            <a href="#" class="block hover:bg-blue-50 p-2 rounded transition-colors">📊 Reports</a>
-        </li>
-        <hr class="border-gray-100">
-        <li>
-            <a href="#" class="block hover:bg-red-50 text-red-600 p-2 rounded transition-colors">🚪 Sign out</a>
-        </li>
-    </ul>
-</div>
-</nav>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" aria-label="Navegação principal">
+            <a class="brand" href="/" aria-label="Automation Code Validator — início">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none">
+                        <path d="M7 8.5 16 4l9 4.5v10L16 28l-9-9.5v-10Z"></path>
+                        <path d="m11.5 15.8 3 3.1 6-6.5"></path>
+                    </svg>
+                </span>
+                <span class="brand-name">Automation <span>Code Validator</span></span>
+            </a>
 
-    <main class="container mx-auto p-6">
-        <div class="flex gap-6 flex-col lg:flex-row">
-            <!-- ESQUERDA: Validation Monitoring -->
-            <div class="flex-1 flex flex-col">
-                <div class="flex flex-wrap items-center justify-between gap-2 min-h-12 mb-6">
-                    <h2 class="text-2xl font-bold">Validation Monitoring</h2>
-                    <div class="flex items-center gap-2">
-                        <button id="runBtn" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded font-bold">🚀 Run Perform Inspection</button>
-                        <button id="stopBtn" type="button" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold disabled:opacity-60" disabled>Stop</button>
-                    </div>
-                </div>
-                <div class="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center">
-                        <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                        <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                        <span class="ml-3 font-mono text-gray-100">📋 Console</span>
-                    </div>
-                    <div id="terminal" class="bg-gray-900 p-4 h-48 overflow-auto font-mono text-sm">
-                        <div class="info">📊 [INIT] Carregando ambiente...</div>
-                    </div>
-                    <button onclick="clearConsole()" class="m-2 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs">Clear</button>
-                </div>
-                <div id="inspectionProgress" class="hidden mt-4" role="status" aria-live="polite">
-                    <div class="flex items-center gap-2 text-sm text-gray-700">
-                        <span class="h-4 w-4 shrink-0 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" aria-hidden="true"></span>
-                        <span id="inspectionProgressText" class="min-w-0 flex-1">Preparing inspection...</span>
-                        <span id="inspectionElapsed" class="shrink-0 font-mono text-gray-500">00:00</span>
-                    </div>
-                    <div class="mt-2 h-1 overflow-hidden rounded bg-gray-300">
-                        <div class="inspection-progress-sweep h-full w-1/3 rounded bg-blue-600"></div>
-                    </div>
-                </div>
-                <div id="statusMsg" class="mt-4 p-4 rounded hidden"></div>
+            <div class="workspace-switcher">
+                <span class="workspace-icon" aria-hidden="true">A</span>
+                <span class="workspace-copy">
+                    <span class="workspace-label">WORKSPACE</span>
+                    <span class="workspace-name">QA Project</span>
+                </span>
             </div>
 
-            <!-- Divisória visível entre as colunas -->
-            <div class="border-t-2 border-gray-400 lg:border-t-0 lg:border-l-2 lg:w-0"></div>
+            <p class="nav-caption">WORKSPACE</p>
+            <nav class="primary-nav">
+                <a class="nav-link workflow-link active" href="#overview" data-page-target="overview" aria-current="page">
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="m3 8 7-5 7 5v8a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8Z"></path>
+                    </svg>
+                    Overview
+                </a>
+                <a class="nav-link workflow-link" href="#validate-automation" data-page-target="validate-automation">
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M3 4h14v12H3z"></path>
+                        <path d="m7 8 2 2-2 2m4 0h3"></path>
+                    </svg>
+                    Validate automation
+                </a>
+                <a class="nav-link workflow-link" href="#validation-logs" data-page-target="validation-logs">
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M4 3.5h8l4 4V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5Z"></path>
+                        <path d="M12 3.5v4h4M7 11h6M7 14h4"></path>
+                    </svg>
+                    Validation logs
+                </a>
+                <button class="nav-link settings-nav-link" id="settingsLink" type="button" aria-haspopup="dialog">
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <circle cx="10" cy="10" r="3"></circle>
+                        <path d="m16 11.5 1-1.5-1-1.5-1.8-.3-.8-1.6.7-1.7L12 4l-1.5 1-1.5-1-2.1.9.7 1.7-.8 1.6-1.8.3-1 1.5 1 1.5 1.8.3.8 1.6-.7 1.7 2.1.9 1.5-1 1.5 1 2.1-.9-.7-1.7.8-1.6 1.8-.3Z"></path>
+                    </svg>
+                    Settings
+                </button>
+            </nav>
 
-            <!-- DIREITA: Visualization Logs -->
-            <div class="flex-1 flex flex-col">
-                <h2 class="text-2xl font-bold mb-6 flex min-h-12 items-center">Visualization Logs</h2>
-                <div class="flex flex-col gap-6">
-                <!-- Lista de Logs -->
-                <div class="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center justify-between">
-                        <span class="flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span><span class="font-mono text-gray-100">📁 Logs da Pasta logs/</span></span>
-                        <span class="text-xs text-gray-400" id="logCount">(carregando...)</span>
-                    </div>
-                    <div id="logsList" class="bg-gray-900 p-3 max-h-64 overflow-auto divide-y divide-gray-700">
-                        <!-- Logs serão carregados via JS -->
-                    </div>
+            <div class="sidebar-footer">
+                <div class="local-status ollama-sidebar-status" id="local-ollama-status" data-state="checking">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span>
+                        <strong>Ollama</strong>
+                        <small id="local-ollama-status-text" role="status" aria-live="polite">Verificando conexão...</small>
+                    </span>
                 </div>
-
-                <!-- Painel de Detalhes do Log (inicialmente oculto) -->
-                <div id="logDetailsPanel" class="bg-gray-800 rounded-lg shadow-xl hidden overflow-hidden">
-                    <div class="bg-gray-700 px-4 py-3 text-sm text-gray-300 flex items-center justify-between">
-                        <span class="font-mono text-yellow-400 flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span><span>📄 Detalhes do Arquivo</span></span>
-                        <button onclick="closeLogDetails()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
-                    </div>
-                    <div id="logDetailsContent" class="p-4 bg-gray-900 font-mono text-xs text-gray-100"></div>
-                </div>
+                <div class="profile">
+                    <span class="avatar" aria-hidden="true">QA</span>
+                    <span class="profile-copy">
+                        <strong>QA Team</strong>
+                        <small>Automation review</small>
+                    </span>
                 </div>
             </div>
-        </div>
-    </main>
+        </aside>
+
+        <main class="main-content" id="main-content">
+            <header class="topbar">
+                <div class="breadcrumbs">Workspace <span aria-hidden="true">›</span> <span id="workflow-breadcrumb">Overview</span></div>
+                <span class="prototype-tag"><span aria-hidden="true"></span> Local workspace</span>
+            </header>
+
+            <div class="dashboard-content">
+                <section class="workflow-page overview-page" id="page-overview" data-page="overview" aria-labelledby="overview-title">
+                    <div class="page-heading">
+                        <div>
+                            <p class="eyebrow">AUTOMATION QUALITY</p>
+                            <h1 id="overview-title">Automation Code Validator</h1>
+                            <p class="page-description">Analyze browser automation logs, detect anomalies, and review AI-assisted validation findings—all locally.</p>
+                        </div>
+                    </div>
+                    <div class="overview-card panel">
+                        <div class="overview-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M5 6.5 12 3l7 3.5v7L12 21l-7-7.5v-7Z"></path><path d="m8.5 12 2.3 2.4 4.7-5"></path></svg>
+                        </div>
+                        <div class="overview-copy">
+                            <h2>Validate your Automation Code</h2>
+                            <p>Run an inspection on your browser test logs to identify issues and save a detailed validation report.</p>
+                        </div>
+                        <button class="primary-button" type="button" data-page-target="validate-automation">Validate automation</button>
+                    </div>
+                </section>
+
+                <section class="workflow-page hidden" id="page-validate-automation" data-page="validate-automation" aria-labelledby="validate-title">
+                    <div class="page-heading">
+                        <div>
+                            <p class="eyebrow">AUTOMATION QUALITY / INSPECTION</p>
+                            <h1 id="validate-title">Validate automation</h1>
+                        </div>
+                        <div class="run-actions">
+                            <button id="runBtn" class="primary-button" type="button">Run inspection</button>
+                            <button id="stopBtn" class="danger-button hidden" type="button" disabled>Stop inspection</button>
+                        </div>
+                    </div>
+                    <section class="panel inspection-panel" aria-labelledby="inspection-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">INSPECTION CONSOLE</p>
+                                <h2 id="inspection-title">Validation monitoring</h2>
+                            </div>
+                            <span class="panel-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20"><path d="M3 4h14v12H3z"></path><path d="m7 8 2 2-2 2m4 0h3"></path></svg>
+                            </span>
+                        </div>
+                        <div class="console-card">
+                            <div class="console-heading">
+                                <span class="console-indicator" aria-hidden="true"><i></i><i></i><i></i></span>
+                                <span>Inspection console</span>
+                                <span class="console-live">LIVE</span>
+                            </div>
+                            <div id="terminal" class="console-output" role="log" aria-live="polite" aria-relevant="additions">
+                                <div class="info">[INIT] Carregando ambiente...</div>
+                            </div>
+                        </div>
+                        <div id="inspectionProgress" class="inspection-progress hidden" role="status" aria-live="polite">
+                            <div class="progress-copy">
+                                <span class="progress-spinner" aria-hidden="true"></span>
+                                <span id="inspectionProgressText">Preparing inspection...</span>
+                                <span id="inspectionElapsed" class="elapsed-time">00:00</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="inspection-progress-sweep"></div>
+                            </div>
+                        </div>
+                        <div id="statusMsg" class="status-message hidden" role="status" aria-live="polite"></div>
+                    </section>
+                </section>
+
+                <section class="workflow-page hidden" id="page-validation-logs" data-page="validation-logs" aria-labelledby="logs-title">
+                    <div class="page-heading">
+                        <div>
+                            <p class="eyebrow">AUTOMATION QUALITY / HISTORY</p>
+                            <h1 id="logs-title">Validation logs</h1>
+                        </div>
+                    </div>
+                    <div class="logs-layout">
+                        <section class="panel logs-column" aria-labelledby="saved-logs-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">SAVED RESULTS</p>
+                                <h2 id="saved-logs-title">Validation logs</h2>
+                            </div>
+                            <span class="panel-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20"><path d="M4 3.5h8l4 4V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5Z"></path><path d="M12 3.5v4h4M7 11h6M7 14h4"></path></svg>
+                            </span>
+                        </div>
+                        <div class="logs-card">
+                            <div class="logs-heading">
+                                <span><span class="logs-indicator" aria-hidden="true"></span> Saved inspections</span>
+                                <span class="log-count" id="logCount" role="status" aria-live="polite">(carregando...)</span>
+                            </div>
+                            <div id="logsList" class="logs-list">
+                                <p class="empty-state">Loading inspection history...</p>
+                            </div>
+                        </div>
+                        </section>
+
+                        <section id="logDetailsPanel" class="panel log-details-card" aria-labelledby="inspection-details-title" aria-live="polite">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">SELECTED RESULT</p>
+                                    <h2 id="inspection-details-title">Inspection details</h2>
+                                </div>
+                            </div>
+                            <div id="logDetailsContent" class="log-details-content">
+                                <p class="details-empty-state">Select a validation log to view its inspection details.</p>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+                <footer class="workflow-navigation">
+                    <button id="backBtn" class="secondary-button" type="button" data-page-target="overview">Back</button>
+                    <button id="forwardBtn" class="primary-button" type="button" data-page-target="validate-automation">Forward</button>
+                </footer>
+                <footer class="page-footer">
+                    <span>Automation Code Validator <span aria-hidden="true">·</span> Quality starts with clarity</span>
+                    <span>Running locally</span>
+                </footer>
+            </div>
+        </main>
+    </div>
     <script>
         const terminal = document.getElementById('terminal');
         const btn = document.getElementById('runBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const ollamaSidebarStatus = document.getElementById('local-ollama-status');
+        const ollamaSidebarStatusText = document.getElementById('local-ollama-status-text');
+        let interfaceThemeSelect;
+        let interfaceThemeStatus;
+        const systemThemeQuery = window.matchMedia('(prefers-color-scheme: light)');
         let activeRunId = null;
+        let savedThemePreference = 'system';
+        let ollamaStatusRequest = null;
+        const workflowOrder = ['overview', 'validate-automation', 'validation-logs'];
+        const workflowPageNames = {
+            overview: 'Overview',
+            'validate-automation': 'Validate Automation',
+            'validation-logs': 'Validation Logs'
+        };
+        const workflowPages = document.querySelectorAll('.workflow-page');
+        const workflowLinks = document.querySelectorAll('.workflow-link');
+        const backBtn = document.getElementById('backBtn');
+        const forwardBtn = document.getElementById('forwardBtn');
+        const workflowBreadcrumb = document.getElementById('workflow-breadcrumb');
+
+        function showWorkflowPage(page, updateHistory = true) {
+            if (!workflowOrder.includes(page)) {
+                page = 'overview';
+            }
+
+            if (updateHistory && window.location.hash !== `#${page}`) {
+                window.history.pushState(null, '', `#${page}`);
+            }
+
+            workflowPages.forEach(section => {
+                section.classList.toggle('hidden', section.dataset.page !== page);
+            });
+            const pageIndex = workflowOrder.indexOf(page);
+            workflowBreadcrumb.replaceChildren();
+            workflowOrder.slice(0, pageIndex + 1).forEach((breadcrumbPage, index) => {
+                if (index > 0) {
+                    const separator = document.createElement('span');
+                    separator.setAttribute('aria-hidden', 'true');
+                    separator.textContent = '>';
+                    workflowBreadcrumb.append(separator);
+                }
+
+                const breadcrumbItem = document.createElement('span');
+                breadcrumbItem.textContent = workflowPageNames[breadcrumbPage];
+                if (index === pageIndex) {
+                    breadcrumbItem.setAttribute('aria-current', 'page');
+                }
+                workflowBreadcrumb.append(breadcrumbItem);
+            });
+            workflowLinks.forEach(link => {
+                const isActive = link.dataset.pageTarget === page;
+                link.classList.toggle('active', isActive);
+                if (isActive) {
+                    link.setAttribute('aria-current', 'page');
+                } else {
+                    link.removeAttribute('aria-current');
+                }
+            });
+
+            backBtn.disabled = pageIndex === 0;
+            forwardBtn.disabled = pageIndex === workflowOrder.length - 1;
+            backBtn.dataset.pageTarget = workflowOrder[Math.max(0, pageIndex - 1)];
+            forwardBtn.dataset.pageTarget = workflowOrder[Math.min(workflowOrder.length - 1, pageIndex + 1)];
+            if (page === 'validation-logs') {
+                window.requestAnimationFrame(fillVisibleLogsList);
+            }
+        }
+
+        document.querySelectorAll('[data-page-target]').forEach(control => {
+            control.addEventListener('click', event => {
+                event.preventDefault();
+                showWorkflowPage(control.dataset.pageTarget);
+            });
+        });
+        window.addEventListener('popstate', () => {
+            showWorkflowPage(window.location.hash.slice(1), false);
+        });
+        showWorkflowPage(window.location.hash.slice(1) || 'overview', false);
+
+        function applyInterfaceTheme(preference) {
+            const resolvedTheme = preference === 'system'
+                ? (systemThemeQuery.matches ? 'light' : 'dark')
+                : preference;
+            document.documentElement.dataset.theme = resolvedTheme;
+            document.documentElement.dataset.themePreference = preference;
+            document.querySelector('meta[name="theme-color"]').content =
+                resolvedTheme === 'light' ? '#f6f7fb' : '#171824';
+        }
+
+        async function loadInterfaceTheme() {
+            try {
+                const response = await fetch('/api/config/interface');
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load interface preference.');
+                }
+                savedThemePreference = data.theme;
+                interfaceThemeSelect.value = savedThemePreference;
+                applyInterfaceTheme(savedThemePreference);
+            } catch (error) {
+                applyInterfaceTheme(savedThemePreference);
+                interfaceThemeStatus.textContent = error.message;
+                interfaceThemeStatus.classList.add('is-error');
+            }
+        }
+
+        async function saveInterfaceTheme() {
+            const theme = interfaceThemeSelect.value;
+            applyInterfaceTheme(theme);
+            interfaceThemeStatus.classList.remove('is-error');
+            interfaceThemeStatus.textContent = 'Saving preference...';
+            try {
+                const response = await fetch('/api/config/interface', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ theme })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to save interface preference.');
+                }
+                savedThemePreference = data.theme;
+                interfaceThemeStatus.textContent = data.message;
+            } catch (error) {
+                interfaceThemeStatus.textContent = error.message;
+                interfaceThemeStatus.classList.add('is-error');
+            }
+        }
+
+        async function updateOllamaSidebarStatus() {
+            if (ollamaStatusRequest) {
+                return;
+            }
+            ollamaStatusRequest = true;
+            ollamaSidebarStatus.dataset.state = 'checking';
+            ollamaSidebarStatusText.textContent = 'Verificando conexão...';
+            try {
+                const response = await fetch('/api/ollama/models');
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Não foi possível conectar ao Ollama.');
+                }
+                ollamaSidebarStatus.dataset.state = 'connected';
+                ollamaSidebarStatusText.textContent = data.models.length
+                    ? `Conectado · ${data.models.length} modelo(s)`
+                    : 'Conectado · nenhum modelo instalado';
+            } catch (error) {
+                ollamaSidebarStatus.dataset.state = 'error';
+                ollamaSidebarStatusText.textContent = 'Não conectado ao Ollama';
+            } finally {
+                ollamaStatusRequest = null;
+            }
+        }
+
+        systemThemeQuery.addEventListener('change', () => {
+            if (savedThemePreference === 'system') {
+                applyInterfaceTheme('system');
+            }
+        });
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -125,10 +377,6 @@
             line.textContent = text;
             terminal.appendChild(line);
             terminal.scrollTop = terminal.scrollHeight;
-        }
-
-        function clearConsole() {
-            terminal.innerHTML = '<div class="info">📊 Terminal limpo...</div>';
         }
 
         let inspectionTimer = null;
@@ -282,7 +530,6 @@
 
         btn.onclick = runInspectionFromFolder;
         stopBtn.addEventListener('click', stopInspection);
-        clearConsole.onclick = clearConsole;
         
         const logsList = document.getElementById('logsList');
         const logCount = document.getElementById('logCount');
@@ -290,6 +537,17 @@
         let totalLogs = 0;
         let hasMoreLogs = true;
         let loadingLogs = false;
+
+        function fillVisibleLogsList() {
+            if (
+                hasMoreLogs &&
+                !loadingLogs &&
+                logsList.clientHeight > 0 &&
+                logsList.scrollHeight <= logsList.clientHeight
+            ) {
+                loadLogs();
+            }
+        }
 
         function createLogItem(log) {
             const row = document.createElement('div');
@@ -336,6 +594,7 @@
 
             loadingLogs = true;
             logCount.textContent = 'Loading...';
+            let shouldFillVisibleList = false;
             try {
                 const response = await fetch(`/api/logs?page=${currentLogsPage}`);
                 const result = await response.json();
@@ -349,16 +608,24 @@
                     logsList.innerHTML = '<div class="text-center text-gray-500 py-4">No log files found in the logs folder.</div>';
                     logCount.textContent = '0 of 0';
                 } else {
+                    const emptyState = logsList.querySelector('.empty-state');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
                     result.logs.forEach(log => logsList.appendChild(createLogItem(log)));
                     const loadedLogs = logsList.querySelectorAll('[data-log-item]').length;
                     logCount.textContent = `${loadedLogs} of ${totalLogs}`;
                     currentLogsPage += 1;
+                    shouldFillVisibleList = result.logs.length > 0;
                 }
             } catch (error) {
                 console.error('Unable to load log files:', error);
                 logCount.textContent = 'Load failed';
             } finally {
                 loadingLogs = false;
+                if (shouldFillVisibleList) {
+                    window.requestAnimationFrame(fillVisibleLogsList);
+                }
             }
         }
 
@@ -420,19 +687,10 @@
                     `;
                 }
                 
-                // Mostrar painel e rolar para ele
-                const panel = document.getElementById('logDetailsPanel');
-                panel.classList.remove('hidden');
-                
             } catch (error) {
                 console.error('Erro ao carregar detalhes:', error);
                 document.getElementById('logDetailsContent').innerHTML = '<div class="text-red-400">Erro: ' + error.message + '</div>';
             }
-        }
-        
-        function closeLogDetails() {
-            const panel = document.getElementById('logDetailsPanel');
-            panel.classList.add('hidden');
         }
         
         // Carregar logs ao iniciar página
@@ -574,7 +832,7 @@ Script block removed and consolidated at the end of the file
 -->
 
 <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="settings-dialog bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <!-- Modal Header -->
         <div class="bg-blue-600 p-4 flex justify-between items-center">
             <h3 class="text-white font-bold text-lg">Settings</h3>
@@ -588,6 +846,7 @@ Script block removed and consolidated at the end of the file
             <button class="tab-btn active flex-1 py-3 font-semibold text-blue-600 border-b-2 border-blue-600" data-tab="ai-config">AI Configuration</button>
             <button class="tab-btn flex-1 py-3 font-semibold text-gray-600 hover:bg-gray-100" data-tab="path-inspect">Path Inspection</button>
             <button class="tab-btn flex-1 py-3 font-semibold text-gray-600 hover:bg-gray-100" data-tab="edit-prompts">Edit Prompts</button>
+            <button class="tab-btn flex-1 py-3 font-semibold text-gray-600 hover:bg-gray-100" data-tab="interface-options">Interface Options</button>
         </div>
 
         <!-- Modal Content -->
@@ -665,6 +924,23 @@ Script block removed and consolidated at the end of the file
                             </div>
                         </div>
                         <textarea id="fixer-prompt-textarea" readonly class="w-full p-2 border rounded h-48 bg-gray-50" placeholder="Enter the fixer prompt..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-interface-options" class="tab-content hidden space-y-4">
+                <p class="text-gray-600">Choose how the dashboard should appear on this machine.</p>
+                <div class="bg-gray-50 p-4 rounded border">
+                    <label for="interface-theme" class="block text-sm font-bold mb-2">Color theme</label>
+                    <select id="interface-theme" class="w-full p-2 border rounded">
+                        <option value="system">Follow system</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                    <p class="mt-4 text-gray-600">System mode follows your operating system appearance preference.</p>
+                    <div class="mt-4 flex items-center justify-between gap-3">
+                        <p id="interface-theme-status" class="text-sm text-gray-600" role="status" aria-live="polite"></p>
+                        <button id="interface-theme-save" type="button" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Save preference</button>
                     </div>
                 </div>
             </div>
@@ -916,6 +1192,7 @@ Script block removed and consolidated at the end of the file
 
             if (preferredModel === 'ollama') {
                 document.getElementById('ollama-model').dataset.savedModel = document.getElementById('ollama-model').value;
+                updateOllamaSidebarStatus();
             }
             status.textContent = data.message;
         } catch (error) {
@@ -924,30 +1201,15 @@ Script block removed and consolidated at the end of the file
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        interfaceThemeSelect = document.getElementById('interface-theme');
+        interfaceThemeStatus = document.getElementById('interface-theme-status');
+
         try {
             loadPrompts();
             loadCodeDirectory();
         } catch (e) {
             console.error('Error loading prompts:', e);
         }
-
-        const menuBtn = document.getElementById('menuBtn');
-        const mainMenu = document.getElementById('mainMenu');
-
-        if (menuBtn && mainMenu) {
-            menuBtn.addEventListener('click', (e) => {
-                console.log('Menu button clicked');
-
-                e.stopPropagation();
-                mainMenu.classList.toggle('hidden');
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            if (menuBtn && mainMenu && !menuBtn.contains(e.target) && !mainMenu.contains(e.target)) {
-                mainMenu.classList.add('hidden');
-            }
-        });
 
         ['evaluator', 'fixer'].forEach((promptType) => {
             const textarea = document.getElementById(`${promptType}-prompt-textarea`);
@@ -998,6 +1260,11 @@ Script block removed and consolidated at the end of the file
         document.getElementById('ollama-refresh-models').addEventListener('click', loadOllamaModels);
         document.getElementById('ollama-save-config').addEventListener('click', saveOllamaConfig);
         loadOllamaConfig();
+        loadInterfaceTheme();
+        updateOllamaSidebarStatus();
+        window.setInterval(updateOllamaSidebarStatus, 30000);
+        document.getElementById('interface-theme-save')
+            .addEventListener('click', saveInterfaceTheme);
 
         // Modal Logic
         const settingsLink = document.getElementById('settingsLink');
@@ -1066,4 +1333,3 @@ Script block removed and consolidated at the end of the file
     </script>
 </body>
 </html>
-

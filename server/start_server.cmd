@@ -8,21 +8,30 @@ echo ==============================================
 
 :: Ir para a raiz do projeto (um nível acima da pasta 'server')
 cd /d "%~dp0.."
-
-:: Verificar se o Python esta instalado
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERRO] Python nao encontrado!
-    echo Certifique-se de que o Python esta instalado e no PATH do sistema.
+if errorlevel 1 (
+    echo [ERRO] Nao foi possivel acessar a pasta raiz do projeto.
     pause
     exit /b 1
 )
 
-:: Verificar se o Flask esta instalado
-python -c "import flask" >nul 2>&1
+:: Preferir o ambiente virtual do projeto
+set "PYTHON=%CD%\.venv\Scripts\python.exe"
+if not exist "%PYTHON%" set "PYTHON=python"
+
+:: Verificar se o Python selecionado esta disponivel
+"%PYTHON%" --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERRO] Flask nao instalado!
-    echo   Execute: pip install flask
+    echo [ERRO] Python nao encontrado!
+    echo Crie .venv ou instale Python e adicione-o ao PATH.
+    pause
+    exit /b 1
+)
+
+:: Verificar as dependencias usadas pelo servidor e pelo workflow
+"%PYTHON%" -c "import flask, requests, langgraph, pydantic, langchain_core" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERRO] Dependencias do projeto ausentes no Python selecionado.
+    echo   Execute: "%PYTHON%" -m pip install -e .
     pause
     exit /b 1
 )
@@ -41,7 +50,7 @@ echo.
 
 :: Executar a aplicacao em uma nova janela
 :: O uso do "start" permite que o script continue para abrir o navegador
-start "Flask_Server_Log" python web_ui\app.py
+start "Automation Code Validator" "%PYTHON%" web_ui\app.py
 
 :: Aguardar o boot (max. 15s) para abrir o navegador
 set /a WAIT=0
@@ -49,7 +58,7 @@ set /a WAIT=0
 set /a WAIT+=1
 if %WAIT% GTR 15 goto boot_timeout
 timeout /t 1 /nobreak >nul
-python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000', timeout=1)" >nul 2>&1
+"%PYTHON%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000', timeout=1)" >nul 2>&1
 if %errorlevel% equ 0 goto browser_open
 goto wait_loop
 

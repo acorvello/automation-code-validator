@@ -5,7 +5,7 @@
 ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=flat&logo=langchain&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat&logo=ollama&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=flat&logo=pydantic&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
 ![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=flat&logo=ruff&logoColor=black)
 
 An intelligent, **AI-powered Flask dashboard** driven by an **agentic workflow (LangGraph)** to analyze, classify, and suggest fixes for **browser test automation logs**.
@@ -14,6 +14,13 @@ By leveraging **local LLM execution with Ollama** and stateful workflows, it aut
 
 <div align="center">
   <img src="assets/automation_code_validator.jpg" alt="Automation Code Validator dashboard analyzing Cypress, Selenium and Playwright logs with a local LLM" width="90%" />
+</div>
+
+## 🖥️ Dashboard Screens
+
+<div align="center">
+  <img src="assets/automation_code_validator_.ValidateAutomation.jpg" alt="Validate Automation screen showing the inspection console and live validation progress" width="49%" />
+  <img src="assets/automation_code_validator_ValidationLogs.jpg" alt="Validation Logs screen showing saved inspections and selected inspection details" width="49%" />
 </div>
 
 ---
@@ -44,7 +51,7 @@ By leveraging **local LLM execution with Ollama** and stateful workflows, it aut
 
 * **Backend Architecture:** Python 3.10+, Flask, Requests.
 * **AI & Orchestration:** LangGraph, Pydantic, Ollama.
-* **Frontend Experience:** HTML5, JavaScript (async stream fetch), Tailwind CSS.
+* **Frontend Experience:** HTML5, vanilla JavaScript, and responsive local CSS with light/dark/system themes.
 * **Quality Assurance & Tooling:** Unittest (automated testing), Ruff (fast linting).
 
 ---
@@ -66,7 +73,7 @@ By leveraging **local LLM execution with Ollama** and stateful workflows, it aut
 ```mermaid
 flowchart LR
     L["Test Automation Logs<br/>Cypress / Selenium / Playwright"] --> I{"Entry Point"}
-    I -->|"Browser"| W["Flask Dashboard<br/>HTML + Tailwind CSS"]
+    I -->|"Browser"| W["Flask Dashboard<br/>HTML + local CSS"]
     I -->|"Terminal"| C["CLI<br/>python src/main.py --cli"]
     W <-->|"SSE stream"| G["LangGraph Workflow<br/>Parser, Evaluator, Fixer"]
     C --> G
@@ -101,11 +108,11 @@ flowchart TD
 Clone the repository and install the runtime dependencies inside a virtual environment (PowerShell):
 
 ```powershell
-git clone https://github.com/acorvello/<repository-name>.git
-cd <repository-name>
+git clone https://github.com/acorvello/automation-code-validator.git
+cd automation-code-validator
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install flask langgraph pydantic requests ruff
+python -m pip install -e .
 ```
 
 ### 2. Configuration
@@ -136,6 +143,7 @@ python web_ui/app.py
 ```
 
 Alternatively, use the automated Windows batch script launcher: `server/start_server.cmd`.
+The launcher prefers the project `.venv`, checks the application dependencies, and serves the dashboard on `127.0.0.1:5000`. The Flask development server is intended for local use only; it is not configured for network or production deployment.
 
 To run the pipeline strictly from the command line interface (CLI):
 
@@ -166,7 +174,8 @@ src/core/                        # Shared graph states and Pydantic schemas
 src/utils/                       # Tech detection engine, HTTP clients, configuration loaders
 src/tests/                       # Automated unit tests and mock fixtures
 web_ui/app.py                    # Flask server endpoints and SSE event emitters
-web_ui/templates/index.html      # Responsive Tailwind dashboard interface
+web_ui/templates/index.html      # Responsive dashboard interface
+web_ui/static/styles.css         # Local visual design system and theme styles
 logs/                            # Context-isolated inspection JSON summaries
 server/start_server.cmd          # Native Windows orchestration script
 ```

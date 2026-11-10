@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,12 +9,146 @@ from src.main import (
     _make_client,
     _normalize_evaluation_response,
     check_ollama_ready,
+    evaluator_node,
     fixer_node,
     stream_validation_graph,
 )
-from src.utils.llm_client import CancellationToken, GenerationCancelledError, OllamaClient
+from src.utils.llm_client import (
+    CancellationToken,
+    GenerationCancelledError,
+    OllamaClient,
+    OllamaOutputError,
+)
 from src.utils.prompt_loader import PromptLoader
-from web_ui.app import app
+from web_ui.app import LOGS_DIR, app
+
+
+class TestDashboardAssets(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_dashboard_uses_local_stylesheet_and_preserves_controls(self):
+        response = self.client.get("/")
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('<html lang="pt-br" data-theme="light">', html)
+        self.assertIn("/static/styles.css", html)
+        self.assertNotIn("cdn.tailwindcss.com", html)
+        for element_id in (
+            "runBtn",
+            "stopBtn",
+            "terminal",
+            "logsList",
+            "logDetailsPanel",
+            "backBtn",
+            "forwardBtn",
+            "settingsLink",
+            "local-ollama-status",
+            "interface-theme",
+            "interface-theme-save",
+        ):
+            self.assertIn(f'id="{element_id}"', html)
+        self.assertRegex(
+            html,
+            r'</div>\s*</div>\s*<div id="tab-interface-options"',
+        )
+        self.assertIn("settings-dialog", html)
+        self.assertIn('data-page="overview"', html)
+        self.assertIn('data-page="validate-automation"', html)
+        self.assertIn('data-page="validation-logs"', html)
+        self.assertIn('id="workflow-breadcrumb">Overview</span>', html)
+        self.assertIn(
+            "workflowOrder.slice(0, pageIndex + 1)",
+            html,
+        )
+        self.assertIn("'validate-automation': 'Validate Automation'", html)
+        self.assertIn("'validation-logs': 'Validation Logs'", html)
+        self.assertIn("Validate automation", html)
+        self.assertIn("Validation monitoring", html)
+        self.assertIn("Inspection details", html)
+        self.assertLess(html.index('id="logsList"'), html.index('id="logDetailsPanel"'))
+        self.assertIn('href="#validate-automation"', html)
+        self.assertIn('href="#validation-logs"', html)
+        self.assertNotIn('class="text-button console-clear"', html)
+        self.assertIn("function fillVisibleLogsList()", html)
+        self.assertIn("window.requestAnimationFrame(fillVisibleLogsList)", html)
+        self.assertIn("emptyState.remove()", html)
+
+        with self.client.get("/static/styles.css") as stylesheet:
+            self.assertEqual(stylesheet.status_code, 200)
+            self.assertIn("--purple:", stylesheet.get_data(as_text=True))
+            self.assertIn(
+                ':root[data-theme="light"]',
+                stylesheet.get_data(as_text=True),
+            )
+            self.assertIn("--purple: #6558d9;", stylesheet.get_data(as_text=True))
+            self.assertIn(
+                "#settingsModal > .settings-dialog",
+                stylesheet.get_data(as_text=True),
+            )
+            self.assertIn(".logs-layout", stylesheet.get_data(as_text=True))
+            self.assertIn("height: 55vh;", stylesheet.get_data(as_text=True))
+            self.assertIn("overflow-y: auto;", stylesheet.get_data(as_text=True))
+
+
+class TestLogDetailsRoute(unittest.TestCase):
+    def setUp(self):
+        self.logs_dir = tempfile.TemporaryDirectory()
+        self.client = app.test_client()
+        self.logs_path_patch = patch("web_ui.app.LOGS_DIR", self.logs_dir.name)
+        self.logs_path_patch.start()
+
+    def tearDown(self):
+        self.logs_path_patch.stop()
+        self.logs_dir.cleanup()
+
+    def test_reads_json_log_from_configured_logs_directory(self):
+        log_path = Path(self.logs_dir.name) / "verification_summary_test.json"
+        log_path.write_text('[{"anomaly_count": 1}]', encoding="utf-8")
+
+        response = self.client.get(
+            "/api/logs-details/verification_summary_test.json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["content"], [{"anomaly_count": 1}])
+
+    def test_rejects_non_json_and_parent_directory_paths(self):
+        non_json = self.client.get("/api/logs-details/private.txt")
+        traversal = self.client.get(
+            "/api/logs-details/..%5cconf%5cconfig.json"
+        )
+
+        self.assertEqual(non_json.status_code, 404)
+        self.assertEqual(traversal.status_code, 404)
+
+    def test_reports_malformed_log_as_server_error(self):
+        log_path = Path(self.logs_dir.name) / "malformed.json"
+        log_path.write_text("{invalid json", encoding="utf-8")
+
+        response = self.client.get("/api/logs-details/malformed.json")
+
+        self.assertEqual(response.status_code, 500)
+
+    def test_rejects_symlink_that_points_outside_logs_directory(self):
+        with tempfile.TemporaryDirectory() as external_dir:
+            external_file = Path(external_dir) / "external.json"
+            external_file.write_text('{"private": true}', encoding="utf-8")
+            link = Path(self.logs_dir.name) / "external.json"
+            try:
+                link.symlink_to(external_file)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"File symlinks are unavailable: {error}")
+
+            response = self.client.get("/api/logs-details/external.json")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_logs_directory_is_anchored_to_project_root(self):
+        project_root = Path(__file__).resolve().parents[2]
+
+        self.assertEqual(Path(LOGS_DIR), project_root / "logs")
 
 
 class TestRunInspectionRoute(unittest.TestCase):
@@ -150,6 +283,7 @@ class TestConfigurationRoutes(unittest.TestCase):
             "ai": {"preferred_model": "ollama"},
             "ollama": {"host": "http://localhost:11434", "model": "qwen3.5:9b"},
             "files": {"input_path": "data/fixtures"},
+            "interface": {"theme": "system"},
             "prompts": {},
         }
 
@@ -191,6 +325,32 @@ class TestConfigurationRoutes(unittest.TestCase):
         self.assertIn("Ollama", response.get_json()["error"])
         save_config.assert_not_called()
 
+    def test_interface_theme_is_loaded_and_saved(self):
+        with patch("web_ui.app.load_config", return_value=self.config):
+            loaded = self.client.get("/api/config/interface")
+
+        with patch("web_ui.app.load_config", return_value=self.config), patch(
+            "web_ui.app.save_config"
+        ) as save_config:
+            saved = self.client.post(
+                "/api/config/interface",
+                json={"theme": "light"},
+            )
+
+        self.assertEqual(loaded.status_code, 200)
+        self.assertEqual(loaded.get_json()["theme"], "system")
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(save_config.call_args.args[0]["interface"]["theme"], "light")
+
+    def test_invalid_interface_theme_is_rejected(self):
+        response = self.client.post(
+            "/api/config/interface",
+            json={"theme": "sepia"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("system, light, or dark", response.get_json()["error"])
+
     def test_prompt_routes_use_configured_prompt_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             prompt_path = Path(temp_dir) / "custom_evaluator.txt"
@@ -202,6 +362,27 @@ class TestConfigurationRoutes(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["evaluator"], "configured prompt")
+
+    def test_prompt_routes_report_invalid_payloads_and_read_errors(self):
+        invalid_json = self.client.post(
+            "/api/prompts",
+            data="not-json",
+            content_type="application/json",
+        )
+        invalid_prompt = self.client.post(
+            "/api/prompts",
+            json={"evaluator": 42},
+        )
+        with patch(
+            "web_ui.app.get_prompt_path",
+            return_value=str(Path(self.client.application.root_path) / "missing.txt"),
+        ):
+            read_error = self.client.get("/api/prompts")
+
+        self.assertEqual(invalid_json.status_code, 400)
+        self.assertEqual(invalid_prompt.status_code, 400)
+        self.assertEqual(read_error.status_code, 500)
+        self.assertIn("Não foi possível ler", read_error.get_json()["error"])
 
 
 class TestLogsPaginationRoute(unittest.TestCase):
@@ -286,6 +467,36 @@ class TestRuntimeConfiguration(unittest.TestCase):
 
 
 class TestPromptSafety(unittest.TestCase):
+    def test_invalid_json_output_fails_closed_and_is_recorded(self):
+        state = {
+            "detected_anomalies": [{
+                "id": "anomaly-1",
+                "severity": "High",
+                "error_type": "UNKNOWN_TIMEOUT",
+                "description": "Timed out waiting for a response.",
+                "selector_affected": None,
+                "flakiness_score": 0.0,
+            }],
+            "evaluation_metrics": {},
+            "execution_history": [],
+        }
+        client = Mock()
+        client.generate_json_response.side_effect = OllamaOutputError(
+            "Malformed generated JSON."
+        )
+        with patch("src.main._make_client", return_value=client):
+            result = evaluator_node(state)
+
+        self.assertFalse(result["needs_fix"])
+        self.assertEqual(
+            result["evaluation_metrics"]["evaluations"][0]["classification"],
+            "UNCLASSIFIED",
+        )
+        self.assertTrue(
+            any("Malformed generated JSON." in item["message"]
+                for item in result["execution_history"])
+        )
+
     def test_evaluator_classification_determines_needs_fix(self):
         response, consistent = _normalize_evaluation_response({
             "anomaly_id": "wrong-model-id",

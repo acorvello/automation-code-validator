@@ -12,6 +12,14 @@ class GenerationCancelledError(Exception):
     """Raised when an active Ollama generation is cancelled by the user."""
 
 
+class OllamaConnectionError(RuntimeError):
+    """Raised when Ollama cannot complete or return a valid API response."""
+
+
+class OllamaOutputError(ValueError):
+    """Raised when generated content does not match the requested format."""
+
+
 class CancellationToken:
     """Thread-safe cancellation state that can close the active HTTP response."""
 
@@ -108,15 +116,26 @@ class OllamaClient:
         try:
             response = requests.post(f"{self.base_url}/api/generate", json=payload, timeout=timeout)
             response.raise_for_status()
-            result = response.json()
-            response_text = result.get("response", "")
-            # If response is empty or not a string, fallback to empty JSON
+            try:
+                result = response.json()
+            except ValueError as error:
+                raise OllamaConnectionError(
+                    "Ollama returned a non-JSON response from /api/generate."
+                ) from error
+            if not isinstance(result, dict):
+                raise OllamaConnectionError(
+                    "Ollama returned an invalid response from /api/generate."
+                )
+            response_text = result.get("response")
             if not isinstance(response_text, str) or not response_text.strip():
-                response_text = "{}"
+                raise OllamaConnectionError(
+                    "Ollama returned an empty generation response."
+                )
             return response_text
-        except Exception as e:
-            print(f"Error calling Ollama: {e}")
-            return "{}"
+        except requests.RequestException as error:
+            raise OllamaConnectionError(
+                f"Unable to generate a response with Ollama at {self.base_url}: {error}"
+            ) from error
 
     def _generate_cancellable(self, payload: dict, timeout: int) -> str:
         response = None
@@ -145,14 +164,19 @@ class OllamaClient:
 
             self.cancellation_token.raise_if_cancelled()
             response_text = "".join(response_parts)
-            return response_text if response_text.strip() else "{}"
+            if not response_text.strip():
+                raise OllamaConnectionError(
+                    "Ollama returned an empty generation response."
+                )
+            return response_text
         except GenerationCancelledError:
             raise
-        except Exception as error:
+        except (requests.RequestException, ValueError) as error:
             if self.cancellation_token.cancelled:
                 raise GenerationCancelledError("Generation cancelled by user.") from error
-            print(f"Error calling Ollama: {error}")
-            return "{}"
+            raise OllamaConnectionError(
+                f"Unable to generate a response with Ollama at {self.base_url}: {error}"
+            ) from error
         finally:
             if response is not None:
                 self.cancellation_token.detach_response(response)
@@ -164,24 +188,31 @@ class OllamaClient:
         """
         response_text = self.generate_response(prompt)
         try:
-            return json.loads(response_text)
+            result = json.loads(response_text)
         except json.JSONDecodeError:
-            print(f"Error parsing JSON from Ollama: {response_text}")
-            # Basic cleanup in case the model returns JSON wrapped in markdown
             if "```json" in response_text:
                 try:
                     cleaned_json = response_text.split("```json")[1].split("```")[0].strip()
-                    return json.loads(cleaned_json)
+                    result = json.loads(cleaned_json)
                 except json.JSONDecodeError:
-                    pass
-            return {}
-
+                    raise OllamaOutputError(
+                        "Ollama returned invalid JSON for the requested structured output."
+                    ) from None
+            else:
+                raise OllamaOutputError(
+                    "Ollama returned invalid JSON for the requested structured output."
+                ) from None
+        if not isinstance(result, dict):
+            raise OllamaOutputError(
+                "Ollama structured output must be a JSON object."
+            )
+        return result
 
     def list_models(self) -> list[str]:
         """Return the names of the models installed on the Ollama server.
 
-        Uses the ``/api/tags`` endpoint. Returns an empty list when the
-        server is unreachable (callers can treat it as "unknown").
+        Uses the ``/api/tags`` endpoint and raises a connection error if the
+        server is unreachable or returns an invalid response.
         """
         try:
             response = requests.get(
@@ -190,12 +221,20 @@ class OllamaClient:
                 headers={"Content-Type": "application/json"},
             )
             response.raise_for_status()
-            return [
-                model.get("name", "")
-                for model in response.json().get("models", [])
-                if model.get("name")
-            ]
-        except (requests.RequestException, ValueError) as exc:
-            print(f"Aviso: não foi possível listar modelos do Ollama ({exc}).")
-            return []
+            payload = response.json()
+        except (requests.RequestException, ValueError) as error:
+            raise OllamaConnectionError(
+                f"Unable to list Ollama models at {self.base_url}: {error}"
+            ) from error
 
+        if not isinstance(payload, dict) or not isinstance(payload.get("models"), list):
+            raise OllamaConnectionError(
+                "Ollama returned an invalid response from /api/tags."
+            )
+        return [
+            model["name"]
+            for model in payload["models"]
+            if isinstance(model, dict)
+            and isinstance(model.get("name"), str)
+            and model["name"]
+        ]

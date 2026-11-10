@@ -1,72 +1,68 @@
 @echo off
-title Verificar Arquivos do Dashboard
-color 0a
+setlocal
+title Verify Automation Code Validator
 
 echo ========================================
-echo  Cypress LangGraph Validator
-echo   Arquivos Necessários
+echo  Automation Code Validator
+echo   Environment Check
 echo ========================================
 echo.
 
 cd /d "%~dp0"
+if errorlevel 1 (
+    echo [ERROR] Could not access the project directory.
+    pause
+    exit /b 1
+)
 
-echo Verificando arquivos...
-echo.
+set "PYTHON=%CD%\.venv\Scripts\python.exe"
+if not exist "%PYTHON%" set "PYTHON=python"
 
-REM Verificar Python
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo ❌ Python NÃO encontrado!
-    echo   Instale em: https://www.python.org/downloads/
-) else (
-    echo ✅ Python encontrado!
-    where python | findstr /i "python.exe"
+echo Checking Python...
+"%PYTHON%" --version
+if errorlevel 1 (
+    echo [ERROR] Python was not found. Install Python or create the project .venv.
+    pause
+    exit /b 1
 )
 
 echo.
 
-REM Verificar Flask
-python -c "import flask; print('✅ Flask instalado!')" 2>nul || (
-    echo ❌ Flask NÃO instalado!
-    echo   Execute: pip install flask
+echo Checking application dependencies...
+"%PYTHON%" -c "import flask, requests, langgraph, pydantic, langchain_core"
+if errorlevel 1 (
+    echo [ERROR] Required dependencies are missing.
+    echo         Install them with: "%PYTHON%" -m pip install -e .
+    pause
+    exit /b 1
 )
 
 echo.
 
-REM Verificar arquivos do projeto
+echo Checking server files...
 if exist web_ui\app.py (
-    echo ✅ web_ui\app.py encontrado
+    echo [OK] web_ui\app.py
 ) else (
-    echo ❌ web_ui\app.py não encontrado!
+    echo [ERROR] web_ui\app.py not found.
+    pause
+    exit /b 1
 )
 
-if exist "web_ui\templates\index.html" (
-    echo ✅ web_ui\templates\index.html encontrado
+if exist web_ui\templates\index.html (
+    echo [OK] web_ui\templates\index.html
 ) else (
-    echo ❌ web_ui\templates\index.html não encontrado!
+    echo [ERROR] web_ui\templates\index.html not found.
+    pause
+    exit /b 1
 )
 
-if exist logs (
-    echo ✅ Pasta /logs existe
-) else (
-    echo ℹ️  Pasta /logs não criada ainda
+if not exist server\start_server.cmd (
+    echo [ERROR] server\start_server.cmd not found.
+    pause
+    exit /b 1
 )
 
 echo.
-echo ========================================
-REM Se tudo ok, sugerir execução do servidor
-where python >nul 2>nul
-if %errorlevel% equ 0 (
-    if exist "web_ui\app.py" (
-        set ALL_OK=1
-        echo.
-        echo 🚀 Para iniciar o servidor:
-        echo    - Execute: start_server.bat
-        echo    - Ou digite na pasta do projeto
-        echo.
-    ) else (
-        echo ⚠️  Arquivo app.py não encontrado!
-    )
-)
-
+echo [OK] Environment is ready.
+echo Start the application with server\start_server.cmd.
 pause

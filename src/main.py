@@ -24,7 +24,6 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 import argparse
-import json
 import time
 from typing import Dict, Optional
 
@@ -32,7 +31,6 @@ from flask import Flask, jsonify, request
 from langchain_core.runnables import RunnableConfig
 from pydantic import ValidationError
 
-app = Flask(__name__)
 app = Flask(__name__)
 
 
@@ -42,7 +40,12 @@ from src.agents.nodes.parser import parse_logs_node
 from src.core.schemas import EvaluatorResponse
 from src.core.state import GraphState
 from src.utils.config import get_input_path, load_config, save_config
-from src.utils.llm_client import CancellationToken, GenerationCancelledError, OllamaClient
+from src.utils.llm_client import (
+    CancellationToken,
+    GenerationCancelledError,
+    OllamaClient,
+    OllamaOutputError,
+)
 from src.utils.prompt_loader import PromptLoader
 
 
@@ -264,8 +267,21 @@ def evaluator_node(state: GraphState, config: Optional[RunnableConfig] = None) -
         if source_code:
             prompt += f"\n# Source code context\n{source_code}\n"
 
+        try:
+            evaluator_payload = client.generate_json_response(prompt)
+        except OllamaOutputError as error:
+            evaluator_payload = {}
+            history.append({
+                "node": "evaluator",
+                "message": (
+                    f">> WARNING: invalid evaluator output for anomaly "
+                    f"{fields.get('id')}: {error}"
+                ),
+                "timestamp": _now(),
+            })
+
         result, response_consistent = _normalize_evaluation_response(
-            client.generate_json_response(prompt),
+            evaluator_payload,
             fields.get("id", "unknown"),
             error_type=fields.get("error_type"),
             flakiness_score=fields.get("flakiness_score"),
@@ -799,6 +815,4 @@ if __name__ == "__main__":
         sys.exit(run_cli())
 
     print("Iniciando servidor Flask em http://localhost:5000 ...")
-    app.run(host="0.0.0.0", port=5000, debug=False)
-
-
+    app.run(host="127.0.0.1", port=5000, debug=False)
