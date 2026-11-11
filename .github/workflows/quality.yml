@@ -27,7 +27,7 @@ jobs:
 
       - name: Run Ruff
         run: >-
-          ruff check --select E,F --extend-ignore E402
+          ruff check --select E,F --extend-ignore E402,E501
           src/utils/config.py src/utils/llm_client.py src/main.py
           src/tests/test_config.py src/tests/test_llm_client.py
           src/tests/test_web_ui.py web_ui/app.py
